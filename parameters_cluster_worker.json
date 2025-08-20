@@ -1,0 +1,42 @@
+[
+  {
+    "ParameterKey": "InfrastructureName",
+    "ParameterValue": "weli-test-tv6k4"
+  },
+  {
+    "ParameterKey": "RhcosAmi",
+    "ParameterValue": "ami-0e8fd9094e487d1ff"
+  },
+  {
+    "ParameterKey": "Worker0Subnet",
+    "ParameterValue": "subnet-0fc66d6a605c00ac1"
+  },
+  {
+    "ParameterKey": "Worker1Subnet",
+    "ParameterValue": "subnet-0ac3c02f37b964303"
+  },
+  {
+    "ParameterKey": "Worker2Subnet",
+    "ParameterValue": "subnet-0b3643f6ab4bc8f37"
+  },
+  {
+    "ParameterKey": "WorkerSecurityGroupId",
+    "ParameterValue": "sg-0a9870b6f764e2613"
+  },
+  {
+    "ParameterKey": "IgnitionLocation",
+    "ParameterValue": "https://api-int.weli-test.qe.devcluster.openshift.com:22623/config/worker"
+  },
+  {
+    "ParameterKey": "CertificateAuthorities",
+    "ParameterValue": "copy_from_ignition_file"
+  },
+  {
+    "ParameterKey": "WorkerInstanceProfileName",
+    "ParameterValue": "weli-test-tv6k4-cluster-security-WorkerInstanceProfile-uoDooRf4znqm"
+  },
+  {
+    "ParameterKey": "WorkerInstanceType",
+    "ParameterValue": "m4.large"
+  }
+]
