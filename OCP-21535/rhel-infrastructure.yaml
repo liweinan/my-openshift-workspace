@@ -1,0 +1,219 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'RHEL 8.1 Infrastructure with VPC, Security Groups, and EC2 Instance'
+
+Parameters:
+  KeyPairName:
+    Type: String
+    Default: 'weli-rhel-key'
+    Description: 'Name of the EC2 Key Pair'
+  
+  InstanceType:
+    Type: String
+    Default: 'm5.xlarge'
+    Description: 'EC2 instance type'
+    AllowedValues:
+      - 't3.micro'
+      - 't3.small'
+      - 't3.medium'
+      - 't3.large'
+      - 'm5.large'
+      - 'm5.xlarge'
+      - 'm5.2xlarge'
+      - 'c5.large'
+      - 'c5.xlarge'
+  
+  RHELImageId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+    Description: 'RHEL 8.1 AMI ID'
+  
+  VpcCidr:
+    Type: String
+    Default: '10.0.0.0/16'
+    Description: 'CIDR block for VPC'
+  
+  SubnetCidr:
+    Type: String
+    Default: '10.0.1.0/24'
+    Description: 'CIDR block for subnet'
+
+Resources:
+  # VPC
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-vpc'
+
+  # Internet Gateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-igw'
+
+  # Attach Internet Gateway to VPC
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # Route Table
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-rt'
+
+  # Default Route
+  DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  # Subnet
+  Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref SubnetCidr
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-subnet'
+
+  # Subnet Route Table Association
+  SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Subnet
+      RouteTableId: !Ref RouteTable
+
+  # Security Group
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${AWS::StackName}-sg'
+      GroupDescription: 'Security group for RHEL 8.1 with SSH, HTTP, HTTPS access'
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: 'SSH access'
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: 'HTTP access'
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: 'HTTPS access'
+        - IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+          Description: 'ICMP (ping)'
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: 'All outbound traffic'
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-sg'
+
+  # EC2 Key Pair
+  KeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: !Ref KeyPairName
+      Tags:
+        - Key: Name
+          Value: !Ref KeyPairName
+
+  # EC2 Instance
+  RHELInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0258229bf3cd8af20  # RHEL 8.1 AMI
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyPair
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      SubnetId: !Ref Subnet
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-rhel-instance'
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y vim wget curl git htop
+          
+          # Create a simple info file
+          cat > /home/ec2-user/instance-info.txt << EOF
+          Instance ID: ${AWS::StackId}
+          Created: $(date)
+          Region: ${AWS::Region}
+          Availability Zone: ${AWS::Region}a
+          EOF
+          
+          chown ec2-user:ec2-user /home/ec2-user/instance-info.txt
+
+Outputs:
+  VPCId:
+    Description: 'VPC ID'
+    Value: !Ref VPC
+    Export:
+      Name: !Sub '${AWS::StackName}-VPC-ID'
+
+  SubnetId:
+    Description: 'Subnet ID'
+    Value: !Ref Subnet
+    Export:
+      Name: !Sub '${AWS::StackName}-Subnet-ID'
+
+  SecurityGroupId:
+    Description: 'Security Group ID'
+    Value: !Ref SecurityGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-SecurityGroup-ID'
+
+  KeyPairName:
+    Description: 'EC2 Key Pair Name'
+    Value: !Ref KeyPair
+    Export:
+      Name: !Sub '${AWS::StackName}-KeyPair-Name'
+
+  InstanceId:
+    Description: 'RHEL Instance ID'
+    Value: !Ref RHELInstance
+    Export:
+      Name: !Sub '${AWS::StackName}-Instance-ID'
+
+  PublicIP:
+    Description: 'Public IP address of the RHEL instance'
+    Value: !GetAtt RHELInstance.PublicIp
+    Export:
+      Name: !Sub '${AWS::StackName}-Public-IP'
+
+  SSHCommand:
+    Description: 'SSH command to connect to the instance'
+    Value: !Sub 'ssh -i ${KeyPairName}.pem ec2-user@${RHELInstance.PublicIp}'
+    Export:
+      Name: !Sub '${AWS::StackName}-SSH-Command'
