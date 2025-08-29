@@ -83,3 +83,16 @@ Copy the following block and paste it under 'platform.aws' in your install-confi
     - subnet-0eb73e4781c6dad39
 ----------------------------------------------------------------
 ```
+
+---
+
+`openshift-install` 已经将您的集群名称截断为 `weli-test-private-clu`。为了保持一致，我们在创建堡垒机时也应该使用这个截断后的名称。
+
+我现在将使用以下信息执行 `create-bastion-host.sh` 脚本：
+
+- __VPC ID__: `vpc-0439f81b789b415f4`
+- __Public Subnet ID__: `subnet-029dcd0c8f4949a2c`
+- __Cluster Name__: `weli-test-private-clu`
+
+---
+

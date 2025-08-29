@@ -43,10 +43,17 @@ VPC_ID=$(echo "${OUTPUTS}" | jq -r '.[] | select(.OutputKey=="VpcId") | .OutputV
 
 # Extract and print the Private Subnet IDs
 PRIVATE_SUBNET_IDS=$(echo "${OUTPUTS}" | jq -r '.[] | select(.OutputKey=="PrivateSubnetIds") | .OutputValue')
+# Extract and print the Public Subnet IDs
+PUBLIC_SUBNET_IDS=$(echo "${OUTPUTS}" | jq -r '.[] | select(.OutputKey=="PublicSubnetIds") | .OutputValue')
 
 echo "----------------------------------------------------------------"
-echo "Copy the following block and paste it under 'platform.aws' in your install-config.yaml"
+echo "VPC Information"
 echo "----------------------------------------------------------------"
+echo "VPC ID: ${VPC_ID}"
+echo "Public Subnets: ${PUBLIC_SUBNET_IDS}"
+echo "Private Subnets: ${PRIVATE_SUBNET_IDS}"
+echo ""
+echo "--- For install-config.yaml ---"
 echo "    vpcID: ${VPC_ID}"
 echo "    subnets:"
 # Convert comma-separated string to a YAML list format with correct indentation
