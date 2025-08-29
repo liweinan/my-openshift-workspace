@@ -87,3 +87,7 @@ Copy the following block and paste it under 'platform.aws' in your install-confi
 ---
 
 注意：`tag-subnets.sh`是必要step（openshift-install要求）
+
+---
+
+<img width="2560" height="1415" alt="image" src="https://github.com/user-attachments/assets/908c4f94-4b64-429b-bf21-6bf3056b558c" />
