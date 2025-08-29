@@ -5,7 +5,7 @@ AWS_PROFILE=""
 # The AWS region where the stack will be created.
 REGION="us-east-1"
 # The name of the CloudFormation stack.
-STACK_NAME="my-private-cluster-vpc"
+STACK_NAME="weli-private-cluster-vpc"
 # The CIDR block for the VPC.
 VPC_CIDR="10.0.0.0/16"
 # The number of Availability Zones to use (1, 2, or 3).

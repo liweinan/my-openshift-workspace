@@ -66,3 +66,20 @@ sshKey: ssh-rsa AAAA...
 **总结**:
 
 整个过程是“先创建网络，再安装集群”。您通过 CloudFormation 模板预置好网络基础设施，然后通过修改 `install-config.yaml` 文件，将网络信息“喂”给 OpenShift 安装程序，引导它在您指定的、已存在的 VPC 环境中完成集群的部署。
+
+---
+
+example output:
+
+```bash
+❯ ./get-vpc-outputs.sh weli-private-cluster-vpc
+Querying stack 'weli-private-cluster-vpc' in region 'us-east-1' for outputs...
+----------------------------------------------------------------
+Copy the following block and paste it under 'platform.aws' in your install-config.yaml
+----------------------------------------------------------------
+    vpcID: vpc-0439f81b789b415f4
+    subnets:
+    - subnet-02115a41d6cbeb8b8
+    - subnet-0eb73e4781c6dad39
+----------------------------------------------------------------
+```
