@@ -14,6 +14,10 @@ graph TB
         INTERNET[Internet]
     end
     
+    subgraph "AWS Services"
+        S3[S3 服务]
+    end
+    
     subgraph "AWS VPC: 10.0.0.0/16"
         subgraph "Public Subnets"
             PUB_SUBNET_1A[Public Subnet 1a<br/>10.0.0.0/20<br/>subnet-029dcd0c8f4949a2c]
@@ -85,6 +89,9 @@ graph TB
     
     S3_ENDPOINT --> PRIV_SUBNET_1A
     S3_ENDPOINT --> PRIV_SUBNET_1B
+    
+    %% S3 VPC Endpoint 连接
+    S3_ENDPOINT -.->|AWS 内部网络| S3[S3 服务]
 ```
 
 ### 部署流程图
@@ -177,6 +184,103 @@ flowchart TD
 - 避免通过 NAT Gateway 访问 S3
 - 提高性能和降低成本
 
+**S3 VPC Endpoint 的作用：**
+
+1. **直接访问 S3 服务**
+   - 允许 VPC 内的实例直接访问 S3 存储桶
+   - 无需通过 Internet Gateway 或 NAT Gateway
+   - 使用 AWS 内部网络，不经过公网
+
+2. **网络架构优化**
+   ```
+   传统方式：
+   VPC 私网子网 → NAT Gateway → Internet Gateway → 公网 → S3
+
+   使用 S3 VPC Endpoint：
+   VPC 私网子网 → S3 VPC Endpoint → S3 (AWS 内部网络)
+   ```
+
+**在私有集群中的具体用途：**
+
+1. **OpenShift 安装过程**
+   - **Bootstrap 节点**：下载容器镜像和软件包
+   - **Master 节点**：拉取 Kubernetes 组件镜像
+   - **Worker 节点**：拉取应用程序镜像
+
+2. **集群运行时**
+   - **镜像仓库**：从 S3 拉取容器镜像
+   - **日志存储**：将集群日志上传到 S3
+   - **备份数据**：存储集群备份和配置
+
+**优势：**
+
+1. **性能提升**
+   - **延迟更低**：使用 AWS 内部网络，延迟比公网访问低
+   - **带宽更高**：内部网络带宽通常比公网连接更稳定
+   - **吞吐量更大**：适合大量数据传输
+
+2. **成本节省**
+   - **减少 NAT Gateway 费用**：避免通过 NAT Gateway 访问 S3
+   - **降低数据传输成本**：AWS 内部网络传输成本更低
+   - **减少 NAT Gateway 带宽费用**
+
+3. **安全性增强**
+   - **网络隔离**：不暴露到公网
+   - **访问控制**：通过 VPC Endpoint 策略控制访问权限
+   - **审计日志**：可以记录所有 S3 访问日志
+
+4. **可靠性提升**
+   - **避免公网依赖**：不依赖 Internet Gateway 的可用性
+   - **减少网络故障点**：减少网络路径中的故障点
+   - **提高可用性**：AWS 内部网络通常比公网更稳定
+
+**VPC 模板中的配置：**
+
+```yaml
+S3Endpoint:
+  Type: AWS::EC2::VPCEndpoint
+  Properties:
+    ServiceName: !Join
+      - ''
+      - - com.amazonaws.
+        - !Ref 'AWS::Region'
+        - .s3
+    PolicyDocument:
+      Version: 2012-10-17
+      Statement:
+      - Effect: Allow
+        Principal: '*'
+        Action:
+        - '*'
+        Resource:
+        - '*'
+    RouteTableIds:
+    - !Ref PublicRouteTable
+    - !Ref PrivateRouteTable
+    - !If [DoAz2, !Ref PrivateRouteTable2, !Ref "AWS::NoValue"]
+    - !If [DoAz3, !Ref PrivateRouteTable3, !Ref "AWS::NoValue"]
+    VpcId: !Ref VPC
+```
+
+**实际效果：**
+
+1. **安装阶段**：
+   - Bootstrap 节点通过 S3 VPC Endpoint 下载 ignition 文件
+   - Master 节点通过 S3 VPC Endpoint 拉取容器镜像
+
+2. **运行阶段**：
+   - 集群组件通过 S3 VPC Endpoint 访问镜像仓库
+   - 应用程序通过 S3 VPC Endpoint 拉取镜像
+
+3. **网络路径**：
+   ```
+   私网子网 → S3 VPC Endpoint → S3 服务
+   ```
+   而不是：
+   ```
+   私网子网 → NAT Gateway → Internet Gateway → 公网 → S3
+   ```
+
 ## 安全架构
 
 ### 安全组配置
@@ -229,17 +333,17 @@ AZ_COUNT=2
 ```yaml
 # install-config.yaml 关键配置
 metadata:
-  name: weli4-clu
+   name: weli4-clu
 networking:
-  machineNetwork:
-    - cidr: 10.0.0.0/16
-  networkType: OVNKubernetes
+   machineNetwork:
+      - cidr: 10.0.0.0/16
+   networkType: OVNKubernetes
 platform:
-  aws:
-    region: us-east-1
-    subnets:
-    - subnet-02115a41d6cbeb8b8  # 私网子网 1a
-    - subnet-0eb73e4781c6dad39  # 私网子网 1b
+   aws:
+      region: us-east-1
+      subnets:
+         - subnet-02115a41d6cbeb8b8  # 私网子网 1a
+         - subnet-0eb73e4781c6dad39  # 私网子网 1b
 publish: Internal  # 私有集群
 ```
 
