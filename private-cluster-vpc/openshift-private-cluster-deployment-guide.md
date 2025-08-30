@@ -32,7 +32,7 @@ graph TB
             S3_ENDPOINT[S3 VPC Endpoint]
         end
         
-        subgraph "Bastion Host"
+        subgraph "Bastion Host (Public Subnet)"
             BASTION[Bastion Host<br/>t2.medium<br/>10.0.6.131<br/>18.234.251.24]
         end
         
@@ -65,8 +65,7 @@ graph TB
     NAT_1A --> PRIV_SUBNET_1A
     NAT_1B --> PRIV_SUBNET_1B
     
-    BASTION --> PRIV_SUBNET_1A
-    BASTION --> PRIV_SUBNET_1B
+    BASTION --> PUB_SUBNET_1A
     
     MASTER_1 --> PRIV_SUBNET_1A
     MASTER_2 --> PRIV_SUBNET_1B
@@ -139,6 +138,19 @@ flowchart TD
 - **可用区数量**: 2 (us-east-1a, us-east-1b)
 - **网络类型**: 私有集群 (Internal)
 
+### 组件部署位置
+
+#### 公网子网组件
+- **堡垒主机**: 部署在公网子网 `subnet-029dcd0c8f4949a2c` (us-east-1a)
+- **Internet Gateway**: 连接公网子网到互联网
+- **NAT Gateway**: 为私网子网提供互联网访问
+
+#### 私网子网组件
+- **控制平面节点**: 部署在私网子网中
+- **工作节点**: 部署在私网子网中
+- **API 负载均衡器**: 内部负载均衡器
+- **应用程序负载均衡器**: 外部负载均衡器
+
 ### 子网分配
 
 #### 公网子网
@@ -182,8 +194,8 @@ flowchart TD
 
 - **控制平面节点**: 仅在私网子网中，无公网 IP
 - **工作节点**: 仅在私网子网中，无公网 IP
-- **堡垒主机**: 在公网子网中，有公网 IP
-- **API 访问**: 通过内部负载均衡器
+- **堡垒主机**: 在公网子网中，有公网 IP，作为访问私网集群的唯一入口
+- **API 访问**: 通过内部负载均衡器，仅堡垒主机可访问
 
 ## 部署步骤
 

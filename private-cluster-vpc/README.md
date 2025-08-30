@@ -91,3 +91,64 @@ Copy the following block and paste it under 'platform.aws' in your install-confi
 ---
 
 <img width="2560" height="1415" alt="image" src="https://github.com/user-attachments/assets/908c4f94-4b64-429b-bf21-6bf3056b558c" />
+
+---
+
+根据你的脚本和实际部署情况，**堡垒主机是部署在公网子网（Public Subnet）中的**。
+
+让我从你的脚本中确认这一点：
+
+
+[1 tool called]
+
+从脚本中可以明确看到：
+
+## 堡垒主机部署在公网子网（Public Subnet）
+
+### 关键证据：
+
+1. **CloudFormation 模板参数**：
+   ```yaml
+   PublicSubnet: {Type: AWS::EC2::Subnet::Id}
+   ```
+
+2. **网络接口配置**：
+   ```yaml
+   NetworkInterfaces:
+   - {AssociatePublicIpAddress: "True", DeviceIndex: "0", GroupSet: [!GetAtt BastionSecurityGroup.GroupId], SubnetId: !Ref "PublicSubnet"}
+   ```
+
+3. **脚本调用参数**：
+   ```bash
+   ./create-bastion-host.sh \
+     vpc-0439f81b789b415f4 \
+     subnet-029dcd0c8f4949a2c \  # 这是公网子网 ID
+     weli4-clu
+   ```
+
+4. **实际部署结果**：
+   - 堡垒主机 IP：`18.234.251.24`（公网 IP）
+   - 私网 IP：`10.0.6.131`
+   - 位于公网子网：`subnet-029dcd0c8f4949a2c`
+
+### 为什么堡垒主机要在公网子网？
+
+1. **远程访问**：需要从互联网 SSH 访问堡垒主机
+2. **管理入口**：作为访问私有集群的唯一入口点
+3. **网络架构**：符合标准的私有集群设计模式
+
+### 网络架构逻辑：
+
+```
+Internet → Internet Gateway → 公网子网 → 堡垒主机
+                                    ↓
+                              私网子网 → OpenShift 集群节点
+```
+
+这种设计确保了：
+- ✅ 堡垒主机可以从互联网访问
+- ✅ 集群节点完全隔离在私网中
+- ✅ 通过堡垒主机作为跳板访问集群
+- ✅ 符合企业安全最佳实践
+
+所以答案是：**堡垒主机部署在公网子网（Public Subnet）中**。
