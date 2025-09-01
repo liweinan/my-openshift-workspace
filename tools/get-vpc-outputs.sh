@@ -4,6 +4,7 @@
 if [ -z "$1" ]; then
   echo "Usage: $0 <stack-name>"
   echo "Please provide the name of the CloudFormation stack."
+  echo "The script will output configurations for both private and public clusters."
   exit 1
 fi
 
@@ -54,26 +55,112 @@ echo "Public Subnets: ${PUBLIC_SUBNET_IDS}"
 echo "Private Subnets: ${PRIVATE_SUBNET_IDS}"
 
 echo ""
-echo "--- For install-config.yaml ---"
+echo "=================================================================="
+echo "PRIVATE CLUSTER CONFIGURATION"
+echo "=================================================================="
+echo "# Use this configuration for private clusters (publish: Internal)"
+echo "# Only private subnets are needed for private clusters"
+echo "platform:"
+echo "  aws:"
+echo "    region: ${REGION}"
+echo "    vpc:"
+echo "      subnets:"
 
-# Determine which subnets to use and print a helpful comment.
-if [ -n "${PRIVATE_SUBNET_IDS}" ]; then
-    echo "# Using Private Subnets. This is required for both Private and Public cluster installations."
-    SUBNETS_TO_USE=${PRIVATE_SUBNET_IDS}
+# Determine zones based on region
+if [ "${REGION}" = "us-east-1" ]; then
+    ZONES=("us-east-1a" "us-east-1b")
+elif [ "${REGION}" = "us-west-2" ]; then
+    ZONES=("us-west-2a" "us-west-2b")
+elif [ "${REGION}" = "eu-west-1" ]; then
+    ZONES=("eu-west-1a" "eu-west-1b")
 else
-    # A VPC without private subnets is not a valid topology for installer-provisioned infrastructure.
-    echo "# ERROR: No Private Subnets found. OpenShift requires private subnets to deploy nodes."
-    echo "# Please use a VPC created with 'vpc-template-private-cluster.yaml'."
-    SUBNETS_TO_USE=""
+    # Generic zone naming for other regions
+    ZONES=("${REGION}a" "${REGION}b")
 fi
 
-# Only proceed to print the config if we have valid subnets to use.
-if [ -n "${SUBNETS_TO_USE}" ]; then
-    echo "platform:"
-    echo "  aws:"
-    echo "    vpc:"
-    echo "      vpcID: ${VPC_ID}"
-    echo "      subnets:"
-    echo "${SUBNETS_TO_USE}" | tr ',' '\n' | sed 's/^/      - /'
+# Private cluster configuration - only private subnets
+if [ -n "${PRIVATE_SUBNET_IDS}" ]; then
+    PRIVATE_SUBNET_ARRAY=($(echo "${PRIVATE_SUBNET_IDS}" | tr ',' ' '))
+    
+    for i in "${!PRIVATE_SUBNET_ARRAY[@]}"; do
+        if [ $i -lt ${#ZONES[@]} ]; then
+            echo "      - id: ${PRIVATE_SUBNET_ARRAY[$i]}"
+            echo "        zone: ${ZONES[$i]}"
+        fi
+    done
+    
+    echo ""
+    echo "publish: Internal"
+    echo ""
+    echo "Note: Private clusters use only private subnets for enhanced security."
+    echo "      All nodes will be deployed in private subnets."
+else
+    echo "# ERROR: No Private Subnets found."
+    echo "# Please ensure your VPC has private subnets configured."
 fi
-echo "----------------------------------------------------------------"
+
+echo ""
+echo "=================================================================="
+echo "PUBLIC CLUSTER CONFIGURATION"
+echo "=================================================================="
+echo "# Use this configuration for public clusters (publish: External)"
+echo "# Both public and private subnets are needed for public clusters"
+echo "platform:"
+echo "  aws:"
+echo "    region: ${REGION}"
+echo "    vpc:"
+echo "      subnets:"
+
+# Public cluster configuration - both public and private subnets
+if [ -n "${PUBLIC_SUBNET_IDS}" ] && [ -n "${PRIVATE_SUBNET_IDS}" ]; then
+    PUBLIC_SUBNET_ARRAY=($(echo "${PUBLIC_SUBNET_IDS}" | tr ',' ' '))
+    PRIVATE_SUBNET_ARRAY=($(echo "${PRIVATE_SUBNET_IDS}" | tr ',' ' '))
+    
+    # Print public subnets with zones
+    echo "      # Public subnets for each availability zone"
+    for i in "${!PUBLIC_SUBNET_ARRAY[@]}"; do
+        if [ $i -lt ${#ZONES[@]} ]; then
+            echo "      - id: ${PUBLIC_SUBNET_ARRAY[$i]}"
+            echo "        zone: ${ZONES[$i]}"
+        fi
+    done
+    
+    # Print private subnets with zones
+    echo "      # Private subnets for each availability zone"
+    for i in "${!PRIVATE_SUBNET_ARRAY[@]}"; do
+        if [ $i -lt ${#ZONES[@]} ]; then
+            echo "      - id: ${PRIVATE_SUBNET_ARRAY[$i]}"
+            echo "        zone: ${ZONES[$i]}"
+        fi
+    done
+    
+    echo ""
+    echo "publish: External"
+    echo ""
+    echo "Note: Public clusters use both public and private subnets."
+    echo "      Control plane nodes in private subnets, workers can be in public subnets."
+else
+    echo "# ERROR: Public clusters require both public and private subnets."
+    echo "# Please ensure your VPC has both subnet types configured."
+fi
+
+echo ""
+echo "=================================================================="
+echo "CONFIGURATION SUMMARY"
+echo "=================================================================="
+echo "Choose the appropriate configuration based on your cluster type:"
+echo ""
+echo "🔒 PRIVATE CLUSTER:"
+echo "   - Use the first configuration above"
+echo "   - Only private subnets in install-config.yaml"
+echo "   - Set publish: Internal"
+echo "   - Higher security, requires bastion host or VPN"
+echo ""
+echo "🌐 PUBLIC CLUSTER:"
+echo "   - Use the second configuration above"
+echo "   - Both public and private subnets in install-config.yaml"
+echo "   - Set publish: External"
+echo "   - Easier deployment, direct internet access"
+echo ""
+echo "Note: Both configurations use the same VPC infrastructure."
+echo "      The difference is in which subnets are referenced in install-config.yaml."

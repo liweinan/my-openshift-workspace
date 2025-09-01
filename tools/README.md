@@ -6,7 +6,25 @@ This repository provides a set of CloudFormation templates and utility scripts t
 
 The philosophy is to "first create the network, then install the cluster." You use the provided tools to provision the necessary VPC infrastructure on AWS, and then guide the OpenShift installer to use this pre-existing environment.
 
-### The Golden Rule: Always Use Private Subnets
+### VPC Templates for Different Cluster Types
+
+We provide three VPC templates to support different deployment scenarios:
+
+1. **`vpc-template-private-cluster.yaml`** - For private clusters (recommended for production)
+   - Public subnets: `MapPublicIpOnLaunch: "false"` (more secure)
+   - Private subnets: `MapPublicIpOnLaunch: "false"`
+   - Includes NAT Gateways for private subnet internet access
+
+2. **`vpc-template-public-cluster.yaml`** - For public clusters (suitable for dev/test)
+   - Public subnets: `MapPublicIpOnLaunch: "true"` (supports public access)
+   - Private subnets: `MapPublicIpOnLaunch: "false"`
+   - Includes NAT Gateways for private subnet internet access
+
+3. **`vpc-template-original.yaml`** - Generic template with advanced options
+   - Configurable public IP assignment
+   - Additional features like DHCP options and resource sharing
+
+### The Golden Rule: Always Use Private Subnets for Nodes
 
 A critical requirement for the OpenShift installer is that it **must** deploy the cluster nodes (both control plane and workers) into **private subnets**. This is true for both **private** and **public** cluster installations.
 
@@ -21,13 +39,23 @@ Therefore, you should **always** use a VPC that has both public and private subn
 
 ### 1. Create the VPC
 
-Use the `create-vpc-stack.sh` script with the `vpc-template-private-cluster.yaml` template. This creates the required topology with public subnets, private subnets, and NAT gateways.
+Choose the appropriate VPC template based on your cluster type:
 
 ```bash
-# This is the recommended command for ALL cluster types.
+# For Private Clusters (Production - Recommended)
 ./create-vpc-stack.sh \
-  --stack-name my-openshift-vpc \
+  --stack-name my-private-vpc \
   --template-file vpc-template-private-cluster.yaml
+
+# For Public Clusters (Dev/Test)
+./create-vpc-stack.sh \
+  --stack-name my-public-vpc \
+  --template-file vpc-template-public-cluster.yaml
+
+# For Generic/Advanced Use Cases
+./create-vpc-stack.sh \
+  --stack-name my-general-vpc \
+  --template-file vpc-template-original.yaml
 ```
 
 ### 2. Get VPC Outputs
@@ -39,7 +67,7 @@ Once the CloudFormation stack is `CREATE_COMPLETE`, use the `get-vpc-outputs.sh`
 ./get-vpc-outputs.sh my-openshift-vpc
 ```
 
-The script will automatically extract the **private subnet IDs** and format them correctly.
+The script will output configurations for **both** private and public clusters, allowing you to choose the appropriate one.
 
 **Example Output:**
 ```bash
@@ -52,16 +80,43 @@ VPC ID: vpc-0439f81b789b415f4
 Public Subnets: subnet-029dcd0c8f4949a2c,subnet-08b1e2a3f4c5d6e7f
 Private Subnets: subnet-02115a41d6cbeb8b8,subnet-0eb73e4781c6dad39
 
---- For install-config.yaml ---
-# Using Private Subnets. This is required for both Private and Public cluster installations.
+==================================================================
+PRIVATE CLUSTER CONFIGURATION
+==================================================================
+# Use this configuration for private clusters (publish: Internal)
 platform:
   aws:
+    region: us-east-1
     vpc:
-      vpcID: vpc-0439f81b789b415f4
       subnets:
-      - subnet-02115a41d6cbeb8b8
-      - subnet-0eb73e4781c6dad39
-----------------------------------------------------------------
+      - id: subnet-02115a41d6cbeb8b8
+        zone: us-east-1a
+      - id: subnet-0eb73e4781c6dad39
+        zone: us-east-1b
+
+publish: Internal
+
+==================================================================
+PUBLIC CLUSTER CONFIGURATION
+==================================================================
+# Use this configuration for public clusters (publish: External)
+platform:
+  aws:
+    region: us-east-1
+    vpc:
+      subnets:
+      # Public subnets for each availability zone
+      - id: subnet-029dcd0c8f4949a2c
+        zone: us-east-1a
+      - id: subnet-08b1e2a3f4c5d6e7f
+        zone: us-east-1b
+      # Private subnets for each availability zone
+      - id: subnet-02115a41d6cbeb8b8
+        zone: us-east-1a
+      - id: subnet-0eb73e4781c6dad39
+        zone: us-east-1b
+
+publish: External
 ```
 
 ### 3. Configure `install-config.yaml`
@@ -71,28 +126,58 @@ You must manually edit your `install-config.yaml` to use the existing VPC.
 1.  Generate a base config: `openshift-install create install-config`
 2.  Edit the generated `install-config.yaml`:
     -   Remove the entire default `platform.aws` section.
-    -   Paste the complete `platform:` block from the script's output into your file.
+    -   Paste the appropriate `platform:` block from the script's output into your file.
     -   Set `publish` to `Internal` for a private cluster or `External` for a public cluster.
     -   Ensure `networking.machineNetwork.cidr` matches your VPC's CIDR.
 
-**`install-config.yaml` Example:**
+**Private Cluster `install-config.yaml` Example:**
 ```yaml
 apiVersion: v1
 baseDomain: your.base.domain.com
 metadata:
-  name: my-cluster
+  name: my-private-cluster
 networking:
   machineNetwork:
   - cidr: 10.0.0.0/16 # Must match your VPC CIDR
-# --- Paste the entire platform block from the script output here ---
 platform:
   aws:
+    region: us-east-1
     vpc:
-      vpcID: vpc-0439f81b789b415f4
       subnets:
-      - subnet-02115a41d6cbeb8b8
-      - subnet-0eb73e4781c6dad39
-publish: External # Or "Internal" for a private cluster
+      - id: subnet-02115a41d6cbeb8b8
+        zone: us-east-1a
+      - id: subnet-0eb73e4781c6dad39
+        zone: us-east-1b
+publish: Internal
+pullSecret: '{"auths":...}'
+sshKey: ssh-rsa AAAA...
+```
+
+**Public Cluster `install-config.yaml` Example:**
+```yaml
+apiVersion: v1
+baseDomain: your.base.domain.com
+metadata:
+  name: my-public-cluster
+networking:
+  machineNetwork:
+  - cidr: 10.0.0.0/16 # Must match your VPC CIDR
+platform:
+  aws:
+    region: us-east-1
+    vpc:
+      subnets:
+      # Public subnets for each availability zone
+      - id: subnet-029dcd0c8f4949a2c
+        zone: us-east-1a
+      - id: subnet-08b1e2a3f4c5d6e7f
+        zone: us-east-1b
+      # Private subnets for each availability zone
+      - id: subnet-02115a41d6cbeb8b8
+        zone: us-east-1a
+      - id: subnet-0eb73e4781c6dad39
+        zone: us-east-1b
+publish: External
 pullSecret: '{"auths":...}'
 sshKey: ssh-rsa AAAA...
 ```

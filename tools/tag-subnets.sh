@@ -45,30 +45,69 @@ PUBLIC_ROLE_TAG_KEY="kubernetes.io/role/elb"
 PRIVATE_ROLE_TAG_KEY="kubernetes.io/role/internal-elb"
 ROLE_TAG_VALUE="1"
 
+# Additional tags for better resource management
+ENVIRONMENT_TAG_KEY="Environment"
+ENVIRONMENT_TAG_VALUE="openshift"
+PROJECT_TAG_KEY="Project"
+PROJECT_TAG_VALUE="${CLUSTER_NAME}"
+
+echo "Starting subnet tagging for cluster: ${CLUSTER_NAME}"
+echo "Region: ${REGION}"
+echo ""
+
 # Tag Public Subnets
 if [ -n "${PUBLIC_SUBNET_IDS}" ]; then
     echo "Tagging Public Subnets..."
     for SUBNET_ID in $(echo "${PUBLIC_SUBNET_IDS}" | tr ',' ' '); do
-        echo "  - Tagging ${SUBNET_ID} with '${PUBLIC_ROLE_TAG_KEY}=${ROLE_TAG_VALUE}'"
+        echo "  - Tagging ${SUBNET_ID} with public role tags"
+        
+        # Create tags for public subnet
         aws ec2 create-tags --region "${REGION}" --resources "${SUBNET_ID}" \
-            --tags "Key=${CLUSTER_TAG_KEY},Value=${CLUSTER_TAG_VALUE}" "Key=${PUBLIC_ROLE_TAG_KEY},Value=${ROLE_TAG_VALUE}"
-        if [ $? -ne 0 ]; then
-            echo "    Error: Failed to tag subnet ${SUBNET_ID}."
+            --tags \
+            "Key=${CLUSTER_TAG_KEY},Value=${CLUSTER_TAG_VALUE}" \
+            "Key=${PUBLIC_ROLE_TAG_KEY},Value=${ROLE_TAG_VALUE}" \
+            "Key=${ENVIRONMENT_TAG_KEY},Value=${ENVIRONMENT_TAG_VALUE}" \
+            "Key=${PROJECT_TAG_KEY},Value=${PROJECT_TAG_VALUE}"
+            
+        if [ $? -eq 0 ]; then
+            echo "    ✓ Successfully tagged ${SUBNET_ID}"
+        else
+            echo "    ✗ Error: Failed to tag subnet ${SUBNET_ID}"
         fi
     done
+    echo ""
 fi
 
 # Tag Private Subnets
 if [ -n "${PRIVATE_SUBNET_IDS}" ]; then
     echo "Tagging Private Subnets..."
     for SUBNET_ID in $(echo "${PRIVATE_SUBNET_IDS}" | tr ',' ' '); do
-        echo "  - Tagging ${SUBNET_ID} with '${PRIVATE_ROLE_TAG_KEY}=${ROLE_TAG_VALUE}'"
+        echo "  - Tagging ${SUBNET_ID} with private role tags"
+        
+        # Create tags for private subnet
         aws ec2 create-tags --region "${REGION}" --resources "${SUBNET_ID}" \
-            --tags "Key=${CLUSTER_TAG_KEY},Value=${CLUSTER_TAG_VALUE}" "Key=${PRIVATE_ROLE_TAG_KEY},Value=${ROLE_TAG_VALUE}"
-        if [ $? -ne 0 ]; then
-            echo "    Error: Failed to tag subnet ${SUBNET_ID}."
+            --tags \
+            "Key=${CLUSTER_TAG_KEY},Value=${CLUSTER_TAG_VALUE}" \
+            "Key=${PRIVATE_ROLE_TAG_KEY},Value=${ROLE_TAG_VALUE}" \
+            "Key=${ENVIRONMENT_TAG_KEY},Value=${ENVIRONMENT_TAG_VALUE}" \
+            "Key=${PROJECT_TAG_KEY},Value=${PROJECT_TAG_VALUE}"
+            
+        if [ $? -eq 0 ]; then
+            echo "    ✓ Successfully tagged ${SUBNET_ID}"
+        else
+            echo "    ✗ Error: Failed to tag subnet ${SUBNET_ID}"
         fi
     done
+    echo ""
 fi
 
 echo "Subnet tagging complete."
+echo ""
+echo "Applied tags:"
+echo "  - ${CLUSTER_TAG_KEY}=${CLUSTER_TAG_VALUE}"
+echo "  - ${ENVIRONMENT_TAG_KEY}=${ENVIRONMENT_TAG_VALUE}"
+echo "  - ${PROJECT_TAG_KEY}=${PROJECT_TAG_VALUE}"
+echo "  - Public subnets: ${PUBLIC_ROLE_TAG_KEY}=${ROLE_TAG_VALUE}"
+echo "  - Private subnets: ${PRIVATE_ROLE_TAG_KEY}=${ROLE_TAG_VALUE}"
+echo ""
+echo "Note: These tags are required for OpenShift to properly manage load balancers and networking."

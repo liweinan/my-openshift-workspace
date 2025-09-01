@@ -67,3 +67,23 @@ Are you sure you want to delete these stacks? (yes/no) y
 Issuing delete command for stack: weli3-vpc
 All delete commands have been sent.
 ```
+
+```bash
+❯ ../openshift-install create cluster --dir . --log-level debug
+...
+ERROR failed to fetch Metadata: failed to load asset "Install Config": failed to create install config: [platform.aws.vpc.subnets: Forbidden: additional subnets [subnet-05fe9ef5ce90ae9eb subnet-0ef53cd147f09d5d1] without tag prefix kubernetes.io/cluster/ are found in vpc vpc-0b04e4f6baadcc1fd of provided subnets. Please add a tag kubernetes.io/cluster/unmanaged to those subnets to exclude them from cluster installation or explicitly assign roles in the install-config to provided subnets, platform.aws.vpc.subnets: Invalid value: []aws.Subnet{aws.Subnet{ID:"subnet-0870351b311b13372", Roles:[]aws.SubnetRole(nil)}, aws.Subnet{ID:"subnet-0866bbb6b23bbc53f", Roles:[]aws.SubnetRole(nil)}}: No public subnet provided for zones [us-east-1a us-east-1b]] 
+weli@tower ~/works/oc-swarm/my-openshift-workspace/tools/work (main) [3]
+❯ ../tag-subnets.sh --help
+Usage: ../tag-subnets.sh <stack-name> <cluster-name>
+Please provide the CloudFormation stack name and the desired OpenShift cluster name.
+weli@tower ~/works/oc-swarm/my-openshift-workspace/tools/work (main) [1]
+❯ ../tag-subnets.sh weli4-vpc weli4a-clus
+Querying stack 'weli4-vpc' in region 'us-east-1' for subnet outputs...
+Tagging subnets for cluster 'weli4a-clus'...
+Tagging subnet: subnet-05fe9ef5ce90ae9eb with kubernetes.io/cluster/weli4a-clus=shared
+Tagging subnet: subnet-0ef53cd147f09d5d1 with kubernetes.io/cluster/weli4a-clus=shared
+Tagging subnet: subnet-0870351b311b13372 with kubernetes.io/cluster/weli4a-clus=shared
+Tagging subnet: subnet-0866bbb6b23bbc53f with kubernetes.io/cluster/weli4a-clus=shared
+Subnet tagging complete.
+```
+

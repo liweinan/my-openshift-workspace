@@ -1,2 +1,25 @@
 .idea
 .DS_Store
+
+# OpenShift installation files
+work/
+*.log
+*.json
+*.tfvars
+*.tfstate
+*.tfstate.backup
+.openshift_install_state.json
+metadata.json
+
+# Binary files
+openshift-install
+
+# Sensitive configuration files
+pull-secret.json
+install-config.yaml
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~

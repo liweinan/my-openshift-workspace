@@ -1,0 +1,37 @@
+additionalTrustBundlePolicy: Proxyonly
+apiVersion: v1
+baseDomain: qe1.devcluster.openshift.com
+compute:
+  - architecture: amd64
+    hyperthreading: Enabled
+    name: worker
+    platform: { }
+    replicas: 3
+controlPlane:
+  architecture: amd64
+  hyperthreading: Enabled
+  name: master
+  platform: { }
+  replicas: 3
+metadata:
+  creationTimestamp: null
+  name: weli4-clu
+networking:
+  clusterNetwork:
+    - cidr: 10.128.0.0/14
+      hostPrefix: 23
+  machineNetwork:
+    - cidr: 10.0.0.0/16
+  networkType: OVNKubernetes
+  serviceNetwork:
+    - 172.30.0.0/16
+platform:
+  aws:
+    region: us-east-1
+    subnets:
+    - id: subnet-02115a41d6cbeb8b8
+    - id: subnet-0eb73e4781c6dad39
+publish: Internal
+pullSecret: '{"auths":{"cloud.openshift.com":{"auth":"YOUR_AUTH_TOKEN_HERE","email":"your-email@example.com"},"quay.io":{"auth":"YOUR_AUTH_TOKEN_HERE","email":"your-email@example.com"},"registry.connect.redhat.com":{"auth":"YOUR_AUTH_TOKEN_HERE","email":"your-email@example.com"},"registry.redhat.io":{"auth":"YOUR_AUTH_TOKEN_HERE","email":"your-email@example.com"}}}'
+sshKey: |
+  ssh-rsa YOUR_SSH_PUBLIC_KEY_HERE your-email@example.com

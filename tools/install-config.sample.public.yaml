@@ -1,4 +1,3 @@
-additionalTrustBundlePolicy: Proxyonly
 apiVersion: v1
 baseDomain: qe1.devcluster.openshift.com
 compute:
@@ -28,10 +27,19 @@ networking:
 platform:
   aws:
     region: us-east-1
-    subnets:
-    - subnet-02115a41d6cbeb8b8
-    - subnet-0eb73e4781c6dad39
-publish: Internal
+    vpc:
+      subnets:
+      # Public subnets for each availability zone
+      - id: subnet-05fe9ef5ce90ae9eb
+        zone: us-east-1a
+      - id: subnet-0ef53cd147f09d5d1
+        zone: us-east-1b
+      # Private subnets for each availability zone
+      - id: subnet-0870351b311b13372
+        zone: us-east-1a
+      - id: subnet-0866bbb6b23bbc53f
+        zone: us-east-1b
+publish: External
 pullSecret: '{"auths":{"cloud.openshift.com":{"auth":"YOUR_AUTH_TOKEN_HERE","email":"your-email@example.com"},"quay.io":{"auth":"YOUR_AUTH_TOKEN_HERE","email":"your-email@example.com"},"registry.connect.redhat.com":{"auth":"YOUR_AUTH_TOKEN_HERE","email":"your-email@example.com"},"registry.redhat.io":{"auth":"YOUR_AUTH_TOKEN_HERE","email":"your-email@example.com"}}}'
 sshKey: |
   ssh-rsa YOUR_SSH_PUBLIC_KEY_HERE your-email@example.com
