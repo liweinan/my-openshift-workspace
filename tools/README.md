@@ -1,13 +1,19 @@
 # OpenShift on AWS: VPC Provisioning Tools
 
-This repository provides a set of CloudFormation templates and utility scripts to streamline the creation of AWS VPC environments suitable for deploying both **private** and **public** OpenShift clusters.
+This repository provides a set of CloudFormation templates and utility scripts to streamline the creation of AWS VPC environments suitable for deploying OpenShift clusters.
 
 ## Core Concepts
 
 The philosophy is to "first create the network, then install the cluster." You use the provided tools to provision the necessary VPC infrastructure on AWS, and then guide the OpenShift installer to use this pre-existing environment.
 
-- **Private Cluster**: The OpenShift control plane and worker nodes are deployed in private subnets, inaccessible from the public internet. Access is typically managed through a bastion host. The cluster's API and application routes are internal.
-- **Public Cluster**: The nodes are deployed in public subnets and are assigned public IP addresses, making the cluster's endpoints directly accessible from the internet.
+### The Golden Rule: Always Use Private Subnets
+
+A critical requirement for the OpenShift installer is that it **must** deploy the cluster nodes (both control plane and workers) into **private subnets**. This is true for both **private** and **public** cluster installations.
+
+-   **Private Cluster (`publish: Internal`)**: The installer places nodes in private subnets. The API endpoints and application routes are accessible only within the VPC.
+-   **Public Cluster (`publish: External`)**: The installer still places nodes in private subnets for security. It then automatically uses the corresponding **public subnets** in the same Availability Zones to create public-facing Load Balancers for the API and application routes.
+
+Therefore, you should **always** use a VPC that has both public and private subnets.
 
 ---
 
@@ -15,47 +21,30 @@ The philosophy is to "first create the network, then install the cluster." You u
 
 ### 1. Create the VPC
 
-Use the `create-vpc-stack.sh` script to launch a CloudFormation stack. The script is parameterized for flexibility.
-
-**For a Private Cluster:**
-
-This will create a VPC with both public and private subnets, along with NAT gateways for outbound internet access from the private subnets.
+Use the `create-vpc-stack.sh` script with the `vpc-template-private-cluster.yaml` template. This creates the required topology with public subnets, private subnets, and NAT gateways.
 
 ```bash
-# Usage: ./create-vpc-stack.sh --stack-name <your-stack-name> --template-file <template.yaml>
+# This is the recommended command for ALL cluster types.
 ./create-vpc-stack.sh \
-  --stack-name my-private-cluster-vpc \
+  --stack-name my-openshift-vpc \
   --template-file vpc-template-private-cluster.yaml
-```
-
-**For a Public Cluster:**
-
-This will create a VPC with only public subnets and an Internet Gateway.
-
-```bash
-./create-vpc-stack.sh \
-  --stack-name my-public-cluster-vpc \
-  --template-file vpc-template-public-cluster.yaml
 ```
 
 ### 2. Get VPC Outputs
 
-Once the CloudFormation stack is `CREATE_COMPLETE`, use the `get-vpc-outputs.sh` script to retrieve the necessary resource IDs.
+Once the CloudFormation stack is `CREATE_COMPLETE`, use the `get-vpc-outputs.sh` script to retrieve the resource IDs in the correct format for `install-config.yaml`.
 
 ```bash
 # Usage: ./get-vpc-outputs.sh <your-stack-name>
-./get-vpc-outputs.sh my-private-cluster-vpc
+./get-vpc-outputs.sh my-openshift-vpc
 ```
 
-The script's output is intelligent and adapts based on the cluster type:
+The script will automatically extract the **private subnet IDs** and format them correctly.
 
-- **For a private cluster**, it will provide a YAML snippet to be pasted into your `install-config.yaml`.
-- **For a public cluster**, it will only display the VPC information, as the OpenShift installer can auto-discover public subnets.
-
-**Example Output (Private Cluster):**
+**Example Output:**
 ```bash
-❯ ./get-vpc-outputs.sh my-private-cluster-vpc
-Querying stack 'my-private-cluster-vpc' in region 'us-east-1' for outputs...
+❯ ./get-vpc-outputs.sh my-openshift-vpc
+Querying stack 'my-openshift-vpc' in region 'us-east-1' for outputs...
 ----------------------------------------------------------------
 VPC Information
 ----------------------------------------------------------------
@@ -64,68 +53,70 @@ Public Subnets: subnet-029dcd0c8f4949a2c,subnet-08b1e2a3f4c5d6e7f
 Private Subnets: subnet-02115a41d6cbeb8b8,subnet-0eb73e4781c6dad39
 
 --- For install-config.yaml ---
-# Using Private Subnets for Private Cluster installation.
+# Using Private Subnets. This is required for both Private and Public cluster installations.
 platform:
   aws:
-    subnets:
-    - subnet-02115a41d6cbeb8b8
-    - subnet-0eb73e4781c6dad39
+    vpc:
+      vpcID: vpc-0439f81b789b415f4
+      subnets:
+      - subnet-02115a41d6cbeb8b8
+      - subnet-0eb73e4781c6dad39
 ----------------------------------------------------------------
 ```
 
 ### 3. Configure `install-config.yaml`
 
-You must manually edit your `install-config.yaml` to tell the installer to use the specific subnets from your existing VPC.
+You must manually edit your `install-config.yaml` to use the existing VPC.
 
 1.  Generate a base config: `openshift-install create install-config`
 2.  Edit the generated `install-config.yaml`:
-    -   Copy the entire `platform.aws.subnets` block from the script's output and merge it into the `platform.aws` section of your file.
-    -   For **private clusters**, ensure `publish` is set to `Internal`.
-    -   For **public clusters**, ensure `publish` is set to `External` (the default).
+    -   Remove the entire default `platform.aws` section.
+    -   Paste the complete `platform:` block from the script's output into your file.
+    -   Set `publish` to `Internal` for a private cluster or `External` for a public cluster.
     -   Ensure `networking.machineNetwork.cidr` matches your VPC's CIDR.
 
-**`install-config.yaml` Example (Private Cluster):**
+**`install-config.yaml` Example:**
 ```yaml
 apiVersion: v1
 baseDomain: your.base.domain.com
 metadata:
-  name: my-private-cluster
+  name: my-cluster
 networking:
   machineNetwork:
   - cidr: 10.0.0.0/16 # Must match your VPC CIDR
+# --- Paste the entire platform block from the script output here ---
 platform:
   aws:
-    region: us-east-1
-    # --- This is the critical part you add/modify ---
-    subnets:
-    - subnet-02115a41d6cbeb8b8 # Your first private subnet ID
-    - subnet-0eb73e4781c6dad39 # Your second private subnet ID
-publish: Internal # Must be Internal for private clusters
+    vpc:
+      vpcID: vpc-0439f81b789b415f4
+      subnets:
+      - subnet-02115a41d6cbeb8b8
+      - subnet-0eb73e4781c6dad39
+publish: External # Or "Internal" for a private cluster
 pullSecret: '{"auths":...}'
 sshKey: ssh-rsa AAAA...
 ```
 
 ### 4. Tag Subnets
 
-**This is a required step for the installer.** The OpenShift installer requires specific tags on the subnets to identify them. Run the `tag-subnets.sh` script.
+**This is a required step.** The installer needs specific tags on the subnets.
 
 ```bash
 # Usage: ./tag-subnets.sh <cluster-name> <vpc-id>
-./tag-subnets.sh my-private-cluster vpc-0439f81b789b415f4
+./tag-subnets.sh my-cluster vpc-0439f81b789b415f4
 ```
 
 ### 5. (Optional) Create a Bastion Host
 
-For private clusters, a bastion host is essential for accessing the cluster.
+For private clusters, a bastion host is essential for access.
 
 ```bash
 # Usage: ./create-bastion-host.sh <vpc-id> <public-subnet-id> <cluster-name>
 ./create-bastion-host.sh \
   vpc-0439f81b789b415f4 \
   subnet-029dcd0c8f4949a2c \
-  my-private-cluster
+  my-cluster
 ```
-The bastion host is always deployed in a **public subnet** to be accessible from the internet, providing a secure entry point to your private network.
 
 ---
 
@@ -141,7 +132,7 @@ Finds all active CloudFormation stacks that contain a specific substring in thei
 
 ### `delete-stacks-by-name.sh`
 
-Finds and deletes all stacks containing a specific name, after prompting for confirmation. It sends delete commands in parallel for faster operation.
+Finds and deletes all stacks containing a specific name, after prompting for confirmation.
 
 **Usage:** `./delete-stacks-by-name.sh <substring>`
 **Warning:** This is a destructive operation.
@@ -151,34 +142,3 @@ Finds and deletes all stacks containing a specific name, after prompting for con
 Checks and displays the current status of all active stacks containing a specific substring.
 
 **Usage:** `./get-stacks-status.sh <substring>`
-
----
-
-## Examples
-
-```bash
-weli@tower ~/works/oc-swarm/my-openshift-workspace/tools/work (main) 
-❯ ../get-vpc-outputs.sh weli3
-Querying stack 'weli3' in region 'us-east-1' for outputs...
-Error: Failed to describe stack 'weli3'. Please check if the stack exists and you have the correct permissions.
-weli@tower ~/works/oc-swarm/my-openshift-workspace/tools/work (main) [1]
-❯ ../get-vpc-outputs.sh weli3-vpc
-Querying stack 'weli3-vpc' in region 'us-east-1' for outputs...
-----------------------------------------------------------------
-VPC Information
-----------------------------------------------------------------
-VPC ID: vpc-09cfe7770737627a5
-Public Subnets: subnet-07d54162fe6545250,subnet-05b5887cee1962f12
-Private Subnets: 
-
---- For install-config.yaml ---
-# Using Public Subnets for Public Cluster installation.
-platform:
-  aws:
-    subnets:
-    - subnet-07d54162fe6545250
-    - subnet-05b5887cee1962f12
-----------------------------------------------------------------
-weli@tower ~/works/oc-swarm/my-openshift-workspace/tools/work (main) 
-❯ 
-```
