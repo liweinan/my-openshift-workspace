@@ -194,3 +194,33 @@ To delete all stacks with "weli" in the name:
 ```
 
 **Warning:** This is a destructive operation. Please be careful and double-check the list of stacks before confirming the deletion.
+
+### Monitoring Stack Deletion
+
+After running the `delete-stacks-by-name.sh` script, you can monitor the deletion progress using the following AWS CLI commands.
+
+**1. Check Overall Stack Status**
+
+To quickly check if a stack is still being deleted or if it has been removed, use `describe-stacks`.
+
+```bash
+aws cloudformation describe-stacks --stack-name <your-stack-name> --query "Stacks[0].StackStatus" --output text
+```
+
+If the command returns `Stack with id ... does not exist`, it means the deletion was successful.
+
+**2. Wait for Deletion to Complete**
+
+If you need a script to pause and wait until a specific stack is fully deleted, use the `cloudformation wait stack-delete-complete` command. This command will block the terminal until the stack is gone.
+
+```bash
+aws cloudformation wait stack-delete-complete --stack-name <your-stack-name>
+```
+
+**3. View Detailed Deletion Events**
+
+To see a detailed log of each resource being deleted within the stack (similar to the AWS Console "Events" tab), use `describe-stack-events`.
+
+```bash
+aws cloudformation describe-stack-events --stack-name <your-stack-name>
+```
