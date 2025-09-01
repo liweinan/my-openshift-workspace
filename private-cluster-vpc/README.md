@@ -157,7 +157,7 @@ This repository contains helper scripts to manage the CloudFormation stacks.
 
 ### `find-stacks-by-name.sh`
 
-This script finds all CloudFormation stacks that contain a specific substring in their name.
+This script finds all **active** CloudFormation stacks (i.e., not in `DELETE_COMPLETE` state) that contain a specific substring in their name.
 
 **Usage:**
 
@@ -175,7 +175,7 @@ To find all stacks with "weli" in the name:
 
 ### `delete-stacks-by-name.sh`
 
-This script finds and deletes all CloudFormation stacks containing a specified name. It will prompt for confirmation before issuing the delete commands.
+This script finds all CloudFormation stacks that are ready for deletion. It includes stacks containing the specified name but **excludes** any that are already `DELETE_COMPLETE` or `DELETE_IN_PROGRESS`. It will then prompt for confirmation before issuing the delete commands.
 
 The script sends all delete commands in parallel and does not wait for the deletions to complete. This allows for faster operation when deleting a large number of stacks. You can monitor the deletion progress in the AWS CloudFormation console.
 
