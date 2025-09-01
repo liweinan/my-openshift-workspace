@@ -18,7 +18,7 @@ REGION=${AWS_REGION:-"us-east-1"}
 echo "Searching for CloudFormation stacks containing '${SEARCH_TERM}' in region ${REGION}..."
 
 STACK_NAMES=$(aws --region "${REGION}" cloudformation list-stacks \
-  --query "StackSummaries[?contains(StackName, \`${SEARCH_TERM}\`)].[StackName]" \
+  --query "StackSummaries[?contains(StackName, \`${SEARCH_TERM}\`) && StackStatus != 'DELETE_COMPLETE'].[StackName]" \
   --output text)
 
 if [[ -z "${STACK_NAMES}" ]]; then
