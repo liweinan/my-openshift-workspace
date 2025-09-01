@@ -23,7 +23,16 @@ STACK_NAMES=$(aws --region "${REGION}" cloudformation list-stacks \
 
 if [[ -z "${STACK_NAMES}" ]]; then
   echo "No active stacks found with the name containing '${SEARCH_TERM}'."
-else
-  echo "Found the following active stacks:"
-  echo "${STACK_NAMES}"
+  exit 0
 fi
+
+echo "Current status of matching stacks:"
+echo "${STACK_NAMES}" | while read -r STACK_NAME; do
+  if [ -n "${STACK_NAME}" ]; then
+    STATUS=$(aws --region "${REGION}" cloudformation describe-stacks --stack-name "${STACK_NAME}" --query "Stacks[0].StackStatus" --output text 2>/dev/null || echo "DELETED")
+    echo "- ${STACK_NAME}: ${STATUS}"
+  fi
+done
+
+echo ""
+echo "Note: AWS API status can be eventually consistent. If a stack was just deleted, it might take a moment to appear here or disappear from the list."

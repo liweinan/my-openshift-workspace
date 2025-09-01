@@ -195,6 +195,22 @@ To delete all stacks with "weli" in the name:
 
 **Warning:** This is a destructive operation. Please be careful and double-check the list of stacks before confirming the deletion.
 
+### `get-stacks-status.sh`
+
+This script finds all active CloudFormation stacks containing a specific substring and displays their current status (e.g., `CREATE_COMPLETE`, `DELETE_IN_PROGRESS`). This is useful for checking the progress of stack deletions.
+
+**Usage:**
+
+```bash
+./get-stacks-status.sh <substring>
+```
+
+**Example:**
+
+```bash
+./get-stacks-status.sh weli
+```
+
 ### Monitoring Stack Deletion
 
 After running the `delete-stacks-by-name.sh` script, you can monitor the deletion progress using the following AWS CLI commands.

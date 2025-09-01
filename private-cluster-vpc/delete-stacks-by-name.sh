@@ -38,7 +38,7 @@ fi
 
 for STACK_NAME in ${STACK_NAMES}; do
   echo "Issuing delete command for stack: ${STACK_NAME}"
-  aws --region "${REGION}" cloudformation delete-stack --stack-name "${STACK_NAME}" &
+  aws --region "${REGION}" cloudformation delete-stack --stack-name "${STACK_NAME}"
 done
 
 wait
