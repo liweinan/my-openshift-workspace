@@ -53,14 +53,20 @@ echo "VPC ID: ${VPC_ID}"
 echo "Public Subnets: ${PUBLIC_SUBNET_IDS}"
 echo "Private Subnets: ${PRIVATE_SUBNET_IDS}"
 
-# If it's a private cluster (PrivateSubnetIds is not empty), print the install-config.yaml section.
+echo ""
+echo "--- For install-config.yaml ---"
+
+# Determine which subnets to use and print a helpful comment.
 if [ -n "${PRIVATE_SUBNET_IDS}" ]; then
-    echo ""
-    echo "--- For install-config.yaml ---"
-    echo "platform:"
-    echo "  aws:"
-    echo "    subnets:"
-    # Convert comma-separated string to a YAML list format with correct indentation
-    echo "${PRIVATE_SUBNET_IDS}" | tr ',' '\n' | sed 's/^/    - /'
+    echo "# Using Private Subnets for Private Cluster installation."
+    SUBNETS_TO_USE=${PRIVATE_SUBNET_IDS}
+else
+    echo "# Using Public Subnets for Public Cluster installation."
+    SUBNETS_TO_USE=${PUBLIC_SUBNET_IDS}
 fi
+
+echo "platform:"
+echo "  aws:"
+echo "    subnets:"
+echo "${SUBNETS_TO_USE}" | tr ',' '\n' | sed 's/^/    - /'
 echo "----------------------------------------------------------------"
