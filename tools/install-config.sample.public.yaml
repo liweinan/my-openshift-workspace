@@ -28,17 +28,13 @@ platform:
   aws:
     region: us-east-1
     vpc:
-      subnets:
-      # Public subnets for each availability zone
-      - id: subnet-05fe9ef5ce90ae9eb
-        zone: us-east-1a
-      - id: subnet-0ef53cd147f09d5d1
-        zone: us-east-1b
-      # Private subnets for each availability zone
-      - id: subnet-0870351b311b13372
-        zone: us-east-1a
-      - id: subnet-0866bbb6b23bbc53f
-        zone: us-east-1b
+                   subnets:
+             # Public subnets for each availability zone
+             - id: subnet-05fe9ef5ce90ae9eb
+             - id: subnet-0ef53cd147f09d5d1
+             # Private subnets for each availability zone
+             - id: subnet-0870351b311b13372
+             - id: subnet-0866bbb6b23bbc53f
 publish: External
 pullSecret: '{"auths":{"cloud.openshift.com":{"auth":"YOUR_AUTH_TOKEN_HERE","email":"your-email@example.com"},"quay.io":{"auth":"YOUR_AUTH_TOKEN_HERE","email":"your-email@example.com"},"registry.connect.redhat.com":{"auth":"YOUR_AUTH_TOKEN_HERE","email":"your-email@example.com"},"registry.redhat.io":{"auth":"YOUR_AUTH_TOKEN_HERE","email":"your-email@example.com"}}}'
 sshKey: |

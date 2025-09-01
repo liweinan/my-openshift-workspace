@@ -1,166 +1,127 @@
 #!/bin/bash
 
-# Check if a stack name is provided
-if [ -z "$1" ]; then
-  echo "Usage: $0 <stack-name>"
-  echo "Please provide the name of the CloudFormation stack."
-  echo "The script will output configurations for both private and public clusters."
-  exit 1
+# 检查参数
+if [ $# -lt 1 ]; then
+    echo "用法: $0 <STACK_NAME>"
+    echo "示例: $0 my-vpc-stack"
+    echo ""
+    echo "注意: 此脚本会输出私有群集和公有群集的配置，请根据你的需求选择"
+    exit 1
 fi
 
 STACK_NAME=$1
-# You can specify your AWS region here if needed.
-# If you encounter errors, make sure this region matches where your stack was created.
-REGION="us-east-1"
+REGION=${2:-"us-east-1"}
 
-# Check if jq is installed
-if ! command -v jq &> /dev/null
-then
-    echo "Error: jq is not installed. Please install jq to run this script."
-    echo "On macOS: brew install jq"
-    echo "On Debian/Ubuntu: sudo apt-get install jq"
-    echo "On RHEL/CentOS: sudo yum install jq"
+echo "正在查询 CloudFormation 堆栈: $STACK_NAME"
+echo "区域: $REGION"
+echo ""
+
+# 检查堆栈是否存在
+if ! aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$REGION" >/dev/null 2>&1; then
+    echo "错误: 堆栈 '$STACK_NAME' 不存在或无法访问"
     exit 1
 fi
 
-echo "Querying stack '${STACK_NAME}' in region '${REGION}' for outputs..."
+# 获取 VPC ID
+VPC_ID=$(aws cloudformation describe-stacks \
+    --stack-name "$STACK_NAME" \
+    --region "$REGION" \
+    --query 'Stacks[0].Outputs[?OutputKey==`VpcId`].OutputValue' \
+    --output text)
 
-# AWS CLI command to describe the stack and extract outputs using jq
-OUTPUTS=$(aws cloudformation describe-stacks --stack-name "${STACK_NAME}" --region "${REGION}" --query "Stacks[0].Outputs" 2>/dev/null)
-
-# Check if the command was successful
-if [ $? -ne 0 ]; then
-  echo "Error: Failed to describe stack '${STACK_NAME}'. Please check if the stack exists and you have the correct permissions."
-  exit 1
-fi
-
-if [ -z "${OUTPUTS}" ] || [ "${OUTPUTS}" == "null" ]; then
-    echo "Error: No outputs found for stack '${STACK_NAME}'."
+if [ -z "$VPC_ID" ] || [ "$VPC_ID" = "None" ]; then
+    echo "错误: 无法获取 VPC ID"
     exit 1
 fi
 
-# Extract and print the VPC ID
-VPC_ID=$(echo "${OUTPUTS}" | jq -r '.[] | select(.OutputKey=="VpcId") | .OutputValue')
-
-# Extract and print the Private Subnet IDs
-PRIVATE_SUBNET_IDS=$(echo "${OUTPUTS}" | jq -r '.[] | select(.OutputKey=="PrivateSubnetIds") | .OutputValue')
-# Extract and print the Public Subnet IDs
-PUBLIC_SUBNET_IDS=$(echo "${OUTPUTS}" | jq -r '.[] | select(.OutputKey=="PublicSubnetIds") | .OutputValue')
-
-echo "----------------------------------------------------------------"
-echo "VPC Information"
-echo "----------------------------------------------------------------"
-echo "VPC ID: ${VPC_ID}"
-echo "Public Subnets: ${PUBLIC_SUBNET_IDS}"
-echo "Private Subnets: ${PRIVATE_SUBNET_IDS}"
-
+echo "VPC ID: $VPC_ID"
 echo ""
-echo "=================================================================="
-echo "PRIVATE CLUSTER CONFIGURATION"
-echo "=================================================================="
-echo "# Use this configuration for private clusters (publish: Internal)"
-echo "# Only private subnets are needed for private clusters"
+
+# 获取可用区
+ZONES=($(aws cloudformation describe-stacks \
+    --stack-name "$STACK_NAME" \
+    --region "$REGION" \
+    --query 'Stacks[0].Outputs[?OutputKey==`AvailabilityZones`].OutputValue' \
+    --output text | tr ',' ' '))
+
+if [ ${#ZONES[@]} -eq 0 ]; then
+    echo "错误: 无法获取可用区信息"
+    exit 1
+fi
+
+echo "可用区: ${ZONES[*]}"
+echo ""
+
+# 获取公共子网
+PUBLIC_SUBNET_IDS=$(aws cloudformation describe-stacks \
+    --stack-name "$STACK_NAME" \
+    --region "$REGION" \
+    --query 'Stacks[0].Outputs[?OutputKey==`PublicSubnetIds`].OutputValue' \
+    --output text)
+
+if [ -z "$PUBLIC_SUBNET_IDS" ] || [ "$PUBLIC_SUBNET_IDS" = "None" ]; then
+    echo "错误: 无法获取公共子网 ID"
+    exit 1
+fi
+
+# 获取私有子网
+PRIVATE_SUBNET_IDS=$(aws cloudformation describe-stacks \
+    --stack-name "$STACK_NAME" \
+    --region "$REGION" \
+    --query 'Stacks[0].Outputs[?OutputKey==`PrivateSubnetIds`].OutputValue' \
+    --output text)
+
+if [ -z "$PRIVATE_SUBNET_IDS" ] || [ "$PRIVATE_SUBNET_IDS" = "None" ]; then
+    echo "错误: 无法获取私有子网 ID"
+    exit 1
+fi
+
+# 转换为数组
+PUBLIC_SUBNET_ARRAY=($(echo "$PUBLIC_SUBNET_IDS" | tr ',' ' '))
+PRIVATE_SUBNET_ARRAY=($(echo "$PRIVATE_SUBNET_IDS" | tr ',' ' '))
+
+echo "公共子网数量: ${#PUBLIC_SUBNET_ARRAY[@]}"
+echo "私有子网数量: ${#PRIVATE_SUBNET_ARRAY[@]}"
+echo ""
+
+echo "=========================================="
+echo "私有群集配置 (publish: Internal)"
+echo "=========================================="
 echo "platform:"
 echo "  aws:"
-echo "    region: ${REGION}"
+echo "    region: $REGION"
 echo "    vpc:"
 echo "      subnets:"
-
-# Determine zones based on region
-if [ "${REGION}" = "us-east-1" ]; then
-    ZONES=("us-east-1a" "us-east-1b")
-elif [ "${REGION}" = "us-west-2" ]; then
-    ZONES=("us-west-2a" "us-west-2b")
-elif [ "${REGION}" = "eu-west-1" ]; then
-    ZONES=("eu-west-1a" "eu-west-1b")
-else
-    # Generic zone naming for other regions
-    ZONES=("${REGION}a" "${REGION}b")
-fi
-
-# Private cluster configuration - only private subnets
-if [ -n "${PRIVATE_SUBNET_IDS}" ]; then
-    PRIVATE_SUBNET_ARRAY=($(echo "${PRIVATE_SUBNET_IDS}" | tr ',' ' '))
-    
-    for i in "${!PRIVATE_SUBNET_ARRAY[@]}"; do
-        if [ $i -lt ${#ZONES[@]} ]; then
-            echo "      - id: ${PRIVATE_SUBNET_ARRAY[$i]}"
-            echo "        zone: ${ZONES[$i]}"
-        fi
-    done
-    
-    echo ""
-    echo "publish: Internal"
-    echo ""
-    echo "Note: Private clusters use only private subnets for enhanced security."
-    echo "      All nodes will be deployed in private subnets."
-else
-    echo "# ERROR: No Private Subnets found."
-    echo "# Please ensure your VPC has private subnets configured."
-fi
-
+for i in "${!PRIVATE_SUBNET_ARRAY[@]}"; do
+    echo "      - id: ${PRIVATE_SUBNET_ARRAY[$i]}"
+done
+echo "publish: Internal"
 echo ""
-echo "=================================================================="
-echo "PUBLIC CLUSTER CONFIGURATION"
-echo "=================================================================="
-echo "# Use this configuration for public clusters (publish: External)"
-echo "# Both public and private subnets are needed for public clusters"
+echo "注意: 私有群集只使用私有子网，通过 NAT Gateway 访问互联网"
+echo ""
+
+echo "=========================================="
+echo "公有群集配置 (publish: External)"
+echo "=========================================="
 echo "platform:"
 echo "  aws:"
-echo "    region: ${REGION}"
+echo "    region: $REGION"
 echo "    vpc:"
 echo "      subnets:"
+for i in "${!PUBLIC_SUBNET_ARRAY[@]}"; do
+    echo "      - id: ${PUBLIC_SUBNET_ARRAY[$i]}"
+done
+for i in "${!PRIVATE_SUBNET_ARRAY[@]}"; do
+    echo "      - id: ${PRIVATE_SUBNET_ARRAY[$i]}"
+done
+echo "publish: External"
+echo ""
+echo "注意: 公有群集使用公共+私有子网组合"
+echo ""
 
-# Public cluster configuration - both public and private subnets
-if [ -n "${PUBLIC_SUBNET_IDS}" ] && [ -n "${PRIVATE_SUBNET_IDS}" ]; then
-    PUBLIC_SUBNET_ARRAY=($(echo "${PUBLIC_SUBNET_IDS}" | tr ',' ' '))
-    PRIVATE_SUBNET_ARRAY=($(echo "${PRIVATE_SUBNET_IDS}" | tr ',' ' '))
-    
-    # Print public subnets with zones
-    echo "      # Public subnets for each availability zone"
-    for i in "${!PUBLIC_SUBNET_ARRAY[@]}"; do
-        if [ $i -lt ${#ZONES[@]} ]; then
-            echo "      - id: ${PUBLIC_SUBNET_ARRAY[$i]}"
-            echo "        zone: ${ZONES[$i]}"
-        fi
-    done
-    
-    # Print private subnets with zones
-    echo "      # Private subnets for each availability zone"
-    for i in "${!PRIVATE_SUBNET_ARRAY[@]}"; do
-        if [ $i -lt ${#ZONES[@]} ]; then
-            echo "      - id: ${PRIVATE_SUBNET_ARRAY[$i]}"
-            echo "        zone: ${ZONES[$i]}"
-        fi
-    done
-    
-    echo ""
-    echo "publish: External"
-    echo ""
-    echo "Note: Public clusters use both public and private subnets."
-    echo "      Control plane nodes in private subnets, workers can be in public subnets."
-else
-    echo "# ERROR: Public clusters require both public and private subnets."
-    echo "# Please ensure your VPC has both subnet types configured."
-fi
-
-echo ""
-echo "=================================================================="
-echo "CONFIGURATION SUMMARY"
-echo "=================================================================="
-echo "Choose the appropriate configuration based on your cluster type:"
-echo ""
-echo "🔒 PRIVATE CLUSTER:"
-echo "   - Use the first configuration above"
-echo "   - Only private subnets in install-config.yaml"
-echo "   - Set publish: Internal"
-echo "   - Higher security, requires bastion host or VPN"
-echo ""
-echo "🌐 PUBLIC CLUSTER:"
-echo "   - Use the second configuration above"
-echo "   - Both public and private subnets in install-config.yaml"
-echo "   - Set publish: External"
-echo "   - Easier deployment, direct internet access"
-echo ""
-echo "Note: Both configurations use the same VPC infrastructure."
-echo "      The difference is in which subnets are referenced in install-config.yaml."
+echo "=========================================="
+echo "使用说明:"
+echo "1. 复制上述配置到你的 install-config.yaml 文件中"
+echo "2. 根据你的需求选择 publish: Internal 或 External"
+echo "3. 确保 pull-secret 已正确配置"
+echo "=========================================="
