@@ -151,3 +151,34 @@ Finds and deletes all stacks containing a specific name, after prompting for con
 Checks and displays the current status of all active stacks containing a specific substring.
 
 **Usage:** `./get-stacks-status.sh <substring>`
+
+---
+
+## Examples
+
+```bash
+weli@tower ~/works/oc-swarm/my-openshift-workspace/tools/work (main) 
+❯ ../get-vpc-outputs.sh weli3
+Querying stack 'weli3' in region 'us-east-1' for outputs...
+Error: Failed to describe stack 'weli3'. Please check if the stack exists and you have the correct permissions.
+weli@tower ~/works/oc-swarm/my-openshift-workspace/tools/work (main) [1]
+❯ ../get-vpc-outputs.sh weli3-vpc
+Querying stack 'weli3-vpc' in region 'us-east-1' for outputs...
+----------------------------------------------------------------
+VPC Information
+----------------------------------------------------------------
+VPC ID: vpc-09cfe7770737627a5
+Public Subnets: subnet-07d54162fe6545250,subnet-05b5887cee1962f12
+Private Subnets: 
+
+--- For install-config.yaml ---
+# Using Public Subnets for Public Cluster installation.
+platform:
+  aws:
+    subnets:
+    - subnet-07d54162fe6545250
+    - subnet-05b5887cee1962f12
+----------------------------------------------------------------
+weli@tower ~/works/oc-swarm/my-openshift-workspace/tools/work (main) 
+❯ 
+```
