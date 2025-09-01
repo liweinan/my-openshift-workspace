@@ -64,6 +64,7 @@ Public Subnets: subnet-029dcd0c8f4949a2c,subnet-08b1e2a3f4c5d6e7f
 Private Subnets: subnet-02115a41d6cbeb8b8,subnet-0eb73e4781c6dad39
 
 --- For install-config.yaml ---
+# Using Private Subnets for Private Cluster installation.
 platform:
   aws:
     subnets:
@@ -74,14 +75,13 @@ platform:
 
 ### 3. Configure `install-config.yaml`
 
-**For a Private Cluster:**
-
-You must manually edit your `install-config.yaml` to tell the installer to use the existing VPC.
+You must manually edit your `install-config.yaml` to tell the installer to use the specific subnets from your existing VPC.
 
 1.  Generate a base config: `openshift-install create install-config`
 2.  Edit the generated `install-config.yaml`:
-    -   Copy the `platform.aws.subnets` block from the script's output and merge it into the `platform.aws` section of your file.
-    -   Ensure `publish` is set to `Internal`.
+    -   Copy the entire `platform.aws.subnets` block from the script's output and merge it into the `platform.aws` section of your file.
+    -   For **private clusters**, ensure `publish` is set to `Internal`.
+    -   For **public clusters**, ensure `publish` is set to `External` (the default).
     -   Ensure `networking.machineNetwork.cidr` matches your VPC's CIDR.
 
 **`install-config.yaml` Example (Private Cluster):**
@@ -104,10 +104,6 @@ publish: Internal # Must be Internal for private clusters
 pullSecret: '{"auths":...}'
 sshKey: ssh-rsa AAAA...
 ```
-
-**For a Public Cluster:**
-
-No modifications to `install-config.yaml` are needed for networking. The installer will automatically discover and use the public subnets within the specified region. Just ensure `publish` is set to `External` (the default).
 
 ### 4. Tag Subnets
 
