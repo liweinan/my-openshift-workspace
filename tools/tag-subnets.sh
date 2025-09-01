@@ -38,25 +38,37 @@ if [ -z "${PUBLIC_SUBNET_IDS}" ] && [ -z "${PRIVATE_SUBNET_IDS}" ]; then
     exit 1
 fi
 
-# Combine all subnet IDs, replacing commas with spaces for the loop
-ALL_SUBNETS=$(echo "${PUBLIC_SUBNET_IDS},${PRIVATE_SUBNET_IDS}" | tr ',' ' ')
+# --- Tagging Logic ---
+CLUSTER_TAG_KEY="kubernetes.io/cluster/${CLUSTER_NAME}"
+CLUSTER_TAG_VALUE="shared"
+PUBLIC_ROLE_TAG_KEY="kubernetes.io/role/elb"
+PRIVATE_ROLE_TAG_KEY="kubernetes.io/role/internal-elb"
+ROLE_TAG_VALUE="1"
 
-TAG_KEY="kubernetes.io/cluster/${CLUSTER_NAME}"
-TAG_VALUE="shared"
+# Tag Public Subnets
+if [ -n "${PUBLIC_SUBNET_IDS}" ]; then
+    echo "Tagging Public Subnets..."
+    for SUBNET_ID in $(echo "${PUBLIC_SUBNET_IDS}" | tr ',' ' '); do
+        echo "  - Tagging ${SUBNET_ID} with '${PUBLIC_ROLE_TAG_KEY}=${ROLE_TAG_VALUE}'"
+        aws ec2 create-tags --region "${REGION}" --resources "${SUBNET_ID}" \
+            --tags "Key=${CLUSTER_TAG_KEY},Value=${CLUSTER_TAG_VALUE}" "Key=${PUBLIC_ROLE_TAG_KEY},Value=${ROLE_TAG_VALUE}"
+        if [ $? -ne 0 ]; then
+            echo "    Error: Failed to tag subnet ${SUBNET_ID}."
+        fi
+    done
+fi
 
-echo "Tagging subnets for cluster '${CLUSTER_NAME}'..."
-
-for SUBNET_ID in $ALL_SUBNETS; do
-  if [ -n "$SUBNET_ID" ]; then
-    echo "Tagging subnet: ${SUBNET_ID} with ${TAG_KEY}=${TAG_VALUE}"
-    aws ec2 create-tags \
-      --region "${REGION}" \
-      --resources "${SUBNET_ID}" \
-      --tags "Key=${TAG_KEY},Value=${TAG_VALUE}"
-    if [ $? -ne 0 ]; then
-      echo "Error: Failed to tag subnet ${SUBNET_ID}."
-    fi
-  fi
-done
+# Tag Private Subnets
+if [ -n "${PRIVATE_SUBNET_IDS}" ]; then
+    echo "Tagging Private Subnets..."
+    for SUBNET_ID in $(echo "${PRIVATE_SUBNET_IDS}" | tr ',' ' '); do
+        echo "  - Tagging ${SUBNET_ID} with '${PRIVATE_ROLE_TAG_KEY}=${ROLE_TAG_VALUE}'"
+        aws ec2 create-tags --region "${REGION}" --resources "${SUBNET_ID}" \
+            --tags "Key=${CLUSTER_TAG_KEY},Value=${CLUSTER_TAG_VALUE}" "Key=${PRIVATE_ROLE_TAG_KEY},Value=${ROLE_TAG_VALUE}"
+        if [ $? -ne 0 ]; then
+            echo "    Error: Failed to tag subnet ${SUBNET_ID}."
+        fi
+    done
+fi
 
 echo "Subnet tagging complete."
