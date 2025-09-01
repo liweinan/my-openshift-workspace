@@ -57,7 +57,8 @@ echo "Private Subnets: ${PRIVATE_SUBNET_IDS}"
 if [ -n "${PRIVATE_SUBNET_IDS}" ]; then
     echo ""
     echo "--- For install-config.yaml ---"
-    echo "    vpcID: ${VPC_ID}"
+    echo "platform:"
+    echo "  aws:"
     echo "    subnets:"
     # Convert comma-separated string to a YAML list format with correct indentation
     echo "${PRIVATE_SUBNET_IDS}" | tr ',' '\n' | sed 's/^/    - /'
