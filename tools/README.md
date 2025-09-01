@@ -142,3 +142,4 @@ Finds and deletes all stacks containing a specific name, after prompting for con
 Checks and displays the current status of all active stacks containing a specific substring.
 
 **Usage:** `./get-stacks-status.sh <substring>`
+
