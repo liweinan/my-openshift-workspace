@@ -148,3 +148,49 @@ Internet → Internet Gateway → 公网子网 → 堡垒主机
 - ✅ 符合企业安全最佳实践
 
 所以答案是：**堡垒主机部署在公网子网（Public Subnet）中**。
+
+---
+
+## Utility Scripts
+
+This repository contains helper scripts to manage the CloudFormation stacks.
+
+### `find-stacks-by-name.sh`
+
+This script finds all CloudFormation stacks that contain a specific substring in their name.
+
+**Usage:**
+
+```bash
+./find-stacks-by-name.sh <substring>
+```
+
+**Example:**
+
+To find all stacks with "weli" in the name:
+
+```bash
+./find-stacks-by-name.sh weli
+```
+
+### `delete-stacks-by-name.sh`
+
+This script finds and deletes all CloudFormation stacks containing a specified name. It will prompt for confirmation before issuing the delete commands.
+
+The script sends all delete commands in parallel and does not wait for the deletions to complete. This allows for faster operation when deleting a large number of stacks. You can monitor the deletion progress in the AWS CloudFormation console.
+
+**Usage:**
+
+```bash
+./delete-stacks-by-name.sh <substring>
+```
+
+**Example:**
+
+To delete all stacks with "weli" in the name:
+
+```bash
+./delete-stacks-by-name.sh weli
+```
+
+**Warning:** This is a destructive operation. Please be careful and double-check the list of stacks before confirming the deletion.
