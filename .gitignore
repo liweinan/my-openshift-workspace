@@ -3,6 +3,9 @@
 
 # OpenShift installation files
 work/
+work2/
+work3/
+work*/
 *.log
 *.json
 *.tfvars
@@ -18,8 +21,20 @@ openshift-install
 pull-secret.json
 install-config.yaml
 
+# OpenShift installation artifacts
+.clusterapi_output/
+auth/
+tls/
+terraform.tfstate*
+terraform.platform.auto.tfvars.json
+log-bundle-*.tar.gz
+
 # Temporary files
 *.tmp
 *.bak
 *.swp
 *~
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
