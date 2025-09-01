@@ -58,15 +58,22 @@ echo "--- For install-config.yaml ---"
 
 # Determine which subnets to use and print a helpful comment.
 if [ -n "${PRIVATE_SUBNET_IDS}" ]; then
-    echo "# Using Private Subnets for Private Cluster installation."
+    echo "# Using Private Subnets. This is required for both Private and Public cluster installations."
     SUBNETS_TO_USE=${PRIVATE_SUBNET_IDS}
 else
-    echo "# Using Public Subnets for Public Cluster installation."
-    SUBNETS_TO_USE=${PUBLIC_SUBNET_IDS}
+    # A VPC without private subnets is not a valid topology for installer-provisioned infrastructure.
+    echo "# ERROR: No Private Subnets found. OpenShift requires private subnets to deploy nodes."
+    echo "# Please use a VPC created with 'vpc-template-private-cluster.yaml'."
+    SUBNETS_TO_USE=""
 fi
 
-echo "platform:"
-echo "  aws:"
-echo "    subnets:"
-echo "${SUBNETS_TO_USE}" | tr ',' '\n' | sed 's/^/    - /'
+# Only proceed to print the config if we have valid subnets to use.
+if [ -n "${SUBNETS_TO_USE}" ]; then
+    echo "platform:"
+    echo "  aws:"
+    echo "    vpc:"
+    echo "      vpcID: ${VPC_ID}"
+    echo "      subnets:"
+    echo "${SUBNETS_TO_USE}" | tr ',' '\n' | sed 's/^/      - /'
+fi
 echo "----------------------------------------------------------------"
