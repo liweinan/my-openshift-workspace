@@ -1,153 +1,135 @@
-# openshift-install配置私有子网
+# OpenShift on AWS: VPC Provisioning Tools
 
-好的，这是一个非常关键的步骤。要让 `openshift-install` 使用您通过 CloudFormation 创建的现有 VPC 环境，您需要在 `install-config.yaml` 文件中详细指定 VPC 的各项资源 ID。
+This repository provides a set of CloudFormation templates and utility scripts to streamline the creation of AWS VPC environments suitable for deploying both **private** and **public** OpenShift clusters.
 
-`openshift-install` 不会自动检测已有的 VPC，您必须明确地告诉它使用哪些子网。
+## Core Concepts
 
-**核心步骤如下：**
+The philosophy is to "first create the network, then install the cluster." You use the provided tools to provision the necessary VPC infrastructure on AWS, and then guide the OpenShift installer to use this pre-existing environment.
 
-1. **获取 VPC 资源信息**: 在您的 CloudFormation 堆栈创建成功后，您需要从其 “Outputs” (输出) 标签页中获取以下关键信息：
-    * `VpcId`: 您的 VPC 的 ID。
-    * `PublicSubnetIds`: 公有子网的 ID 列表。
-    * `PrivateSubnetIds`: 私有子网的 ID 列表。
-
-2. **修改 `install-config.yaml`**: 在运行 `openshift-install create cluster` 之前，您需要先运行 `openshift-install create install-config` 生成一个基础的 `install-config.yaml` 文件。然后，手动编辑这个文件，添加或修改 `platform.aws` 部分，如下所示：
-
-**`install-config.yaml` 修改示例:**
-
-```yaml
-apiVersion: v1
-baseDomain: your.base.domain.com
-compute:
-- architecture: amd64
-  hyperthreading: Enabled
-  name: worker
-  platform: {}
-  replicas: 3
-controlPlane:
-  architecture: amd64
-  hyperthreading: Enabled
-  name: master
-  platform: {}
-  replicas: 3
-metadata:
-  name: my-private-cluster
-networking:
-  clusterNetwork:
-  - cidr: 10.128.0.0/14
-    hostPrefix: 23
-  machineNetwork:
-  - cidr: 10.0.0.0/16 # 这个应该和您的 VPC CIDR 匹配
-  networkType: OVNKubernetes
-  serviceNetwork:
-  - 172.30.0.0/16
-platform:
-  aws:
-    region: us-east-1 # 您的区域
-    # --- 这是您需要添加或修改的关键部分 ---
-    subnets:
-    - subnet-0123456789abcdef0 # 第一个私有子网 ID
-    - subnet-fedcba9876543210f # 第二个私有子网 ID
-    # 如果有更多私有子网，继续添加...
-    vpcID: vpc-abcdef0123456789 # 您的 VPC ID
-publish: Internal # 对于私有集群，这里必须是 Internal
-pullSecret: '{"auths":...}'
-sshKey: ssh-rsa AAAA...
-```
-
-**关键点解释:**
-
-* **`platform.aws.subnets`**: 这是一个**列表**，您需要在这里填入所有希望 OpenShift 使用的**私有子网 (Private Subnets)** 的 ID。安装程序会将 Master 和 Worker 节点都部署在这些私有子网中。
-* **`platform.aws.vpcID`**: 这里填入您的 CloudFormation 堆栈创建的 VPC 的 ID。
-* **`networking.machineNetwork`**: 这里的 CIDR 必须与您 VPC 的 CIDR (`VpcCidr` 参数) 相匹配。
-* **`publish: Internal`**: 这是私有集群的关键设置。它告诉安装程序，集群的 API 端点和应用路由都应该是私有的，不能从公网直接访问。
-* **公有子网去哪了？**: 您可能会问为什么没有填公有子网的 ID。`openshift-install` 会自动发现与您提供的私有子网在同一可用区 (Availability Zone) 的公有子网，并使用它们来创建面向公众的资源，例如负载均衡器 (ELB/NLB)。这就是为什么我们的 CloudFormation 模板需要同时创建公有和私有子网的原因。
-
-**总结**:
-
-整个过程是“先创建网络，再安装集群”。您通过 CloudFormation 模板预置好网络基础设施，然后通过修改 `install-config.yaml` 文件，将网络信息“喂”给 OpenShift 安装程序，引导它在您指定的、已存在的 VPC 环境中完成集群的部署。
+- **Private Cluster**: The OpenShift control plane and worker nodes are deployed in private subnets, inaccessible from the public internet. Access is typically managed through a bastion host. The cluster's API and application routes are internal.
+- **Public Cluster**: The nodes are deployed in public subnets and are assigned public IP addresses, making the cluster's endpoints directly accessible from the internet.
 
 ---
 
-example output:
+## Quick Start
+
+### 1. Create the VPC
+
+Use the `create-vpc-stack.sh` script to launch a CloudFormation stack. The script is parameterized for flexibility.
+
+**For a Private Cluster:**
+
+This will create a VPC with both public and private subnets, along with NAT gateways for outbound internet access from the private subnets.
 
 ```bash
-❯ ./get-vpc-outputs.sh weli-private-cluster-vpc
-Querying stack 'weli-private-cluster-vpc' in region 'us-east-1' for outputs...
+# Usage: ./create-vpc-stack.sh --stack-name <your-stack-name> --template-file <template.yaml>
+./create-vpc-stack.sh \
+  --stack-name my-private-cluster-vpc \
+  --template-file vpc-template-private-cluster.yaml
+```
+
+**For a Public Cluster:**
+
+This will create a VPC with only public subnets and an Internet Gateway.
+
+```bash
+./create-vpc-stack.sh \
+  --stack-name my-public-cluster-vpc \
+  --template-file vpc-template-public-cluster.yaml
+```
+
+### 2. Get VPC Outputs
+
+Once the CloudFormation stack is `CREATE_COMPLETE`, use the `get-vpc-outputs.sh` script to retrieve the necessary resource IDs.
+
+```bash
+# Usage: ./get-vpc-outputs.sh <your-stack-name>
+./get-vpc-outputs.sh my-private-cluster-vpc
+```
+
+The script's output is intelligent and adapts based on the cluster type:
+
+- **For a private cluster**, it will provide a YAML snippet to be pasted into your `install-config.yaml`.
+- **For a public cluster**, it will only display the VPC information, as the OpenShift installer can auto-discover public subnets.
+
+**Example Output (Private Cluster):**
+```bash
+❯ ./get-vpc-outputs.sh my-private-cluster-vpc
+Querying stack 'my-private-cluster-vpc' in region 'us-east-1' for outputs...
 ----------------------------------------------------------------
-Copy the following block and paste it under 'platform.aws' in your install-config.yaml
+VPC Information
 ----------------------------------------------------------------
-    vpcID: vpc-0439f81b789b415f4
+VPC ID: vpc-0439f81b789b415f4
+Public Subnets: subnet-029dcd0c8f4949a2c,subnet-08b1e2a3f4c5d6e7f
+Private Subnets: subnet-02115a41d6cbeb8b8,subnet-0eb73e4781c6dad39
+
+--- For install-config.yaml ---
+platform:
+  aws:
     subnets:
     - subnet-02115a41d6cbeb8b8
     - subnet-0eb73e4781c6dad39
 ----------------------------------------------------------------
 ```
 
----
+### 3. Configure `install-config.yaml`
 
-注意：`tag-subnets.sh`是必要step（openshift-install要求）
+**For a Private Cluster:**
 
----
+You must manually edit your `install-config.yaml` to tell the installer to use the existing VPC.
 
-根据你的脚本和实际部署情况，**堡垒主机是部署在公网子网（Public Subnet）中的**。
+1.  Generate a base config: `openshift-install create install-config`
+2.  Edit the generated `install-config.yaml`:
+    -   Copy the `platform.aws.subnets` block from the script's output and merge it into the `platform.aws` section of your file.
+    -   Ensure `publish` is set to `Internal`.
+    -   Ensure `networking.machineNetwork.cidr` matches your VPC's CIDR.
 
-让我从你的脚本中确认这一点：
-
-
-[1 tool called]
-
-从脚本中可以明确看到：
-
-## 堡垒主机部署在公网子网（Public Subnet）
-
-### 关键证据：
-
-1. **CloudFormation 模板参数**：
-   ```yaml
-   PublicSubnet: {Type: AWS::EC2::Subnet::Id}
-   ```
-
-2. **网络接口配置**：
-   ```yaml
-   NetworkInterfaces:
-   - {AssociatePublicIpAddress: "True", DeviceIndex: "0", GroupSet: [!GetAtt BastionSecurityGroup.GroupId], SubnetId: !Ref "PublicSubnet"}
-   ```
-
-3. **脚本调用参数**：
-   ```bash
-   ./create-bastion-host.sh \
-     vpc-0439f81b789b415f4 \
-     subnet-029dcd0c8f4949a2c \  # 这是公网子网 ID
-     weli4-clu
-   ```
-
-4. **实际部署结果**：
-   - 堡垒主机 IP：`18.234.251.24`（公网 IP）
-   - 私网 IP：`10.0.6.131`
-   - 位于公网子网：`subnet-029dcd0c8f4949a2c`
-
-### 为什么堡垒主机要在公网子网？
-
-1. **远程访问**：需要从互联网 SSH 访问堡垒主机
-2. **管理入口**：作为访问私有集群的唯一入口点
-3. **网络架构**：符合标准的私有集群设计模式
-
-### 网络架构逻辑：
-
-```
-Internet → Internet Gateway → 公网子网 → 堡垒主机
-                                    ↓
-                              私网子网 → OpenShift 集群节点
+**`install-config.yaml` Example (Private Cluster):**
+```yaml
+apiVersion: v1
+baseDomain: your.base.domain.com
+metadata:
+  name: my-private-cluster
+networking:
+  machineNetwork:
+  - cidr: 10.0.0.0/16 # Must match your VPC CIDR
+platform:
+  aws:
+    region: us-east-1
+    # --- This is the critical part you add/modify ---
+    subnets:
+    - subnet-02115a41d6cbeb8b8 # Your first private subnet ID
+    - subnet-0eb73e4781c6dad39 # Your second private subnet ID
+publish: Internal # Must be Internal for private clusters
+pullSecret: '{"auths":...}'
+sshKey: ssh-rsa AAAA...
 ```
 
-这种设计确保了：
-- ✅ 堡垒主机可以从互联网访问
-- ✅ 集群节点完全隔离在私网中
-- ✅ 通过堡垒主机作为跳板访问集群
-- ✅ 符合企业安全最佳实践
+**For a Public Cluster:**
 
-所以答案是：**堡垒主机部署在公网子网（Public Subnet）中**。
+No modifications to `install-config.yaml` are needed for networking. The installer will automatically discover and use the public subnets within the specified region. Just ensure `publish` is set to `External` (the default).
+
+### 4. Tag Subnets
+
+**This is a required step for the installer.** The OpenShift installer requires specific tags on the subnets to identify them. Run the `tag-subnets.sh` script.
+
+```bash
+# Usage: ./tag-subnets.sh <cluster-name> <vpc-id>
+./tag-subnets.sh my-private-cluster vpc-0439f81b789b415f4
+```
+
+### 5. (Optional) Create a Bastion Host
+
+For private clusters, a bastion host is essential for accessing the cluster.
+
+```bash
+# Usage: ./create-bastion-host.sh <vpc-id> <public-subnet-id> <cluster-name>
+./create-bastion-host.sh \
+  vpc-0439f81b789b415f4 \
+  subnet-029dcd0c8f4949a2c \
+  my-private-cluster
+```
+The bastion host is always deployed in a **public subnet** to be accessible from the internet, providing a secure entry point to your private network.
 
 ---
 
@@ -157,86 +139,19 @@ This repository contains helper scripts to manage the CloudFormation stacks.
 
 ### `find-stacks-by-name.sh`
 
-This script finds all **active** CloudFormation stacks (i.e., not in `DELETE_COMPLETE` state) that contain a specific substring in their name.
+Finds all active CloudFormation stacks that contain a specific substring in their name.
 
-**Usage:**
-
-```bash
-./find-stacks-by-name.sh <substring>
-```
-
-**Example:**
-
-To find all stacks with "weli" in the name:
-
-```bash
-./find-stacks-by-name.sh weli
-```
+**Usage:** `./find-stacks-by-name.sh <substring>`
 
 ### `delete-stacks-by-name.sh`
 
-This script finds all CloudFormation stacks that are ready for deletion. It includes stacks containing the specified name but **excludes** any that are already `DELETE_COMPLETE` or `DELETE_IN_PROGRESS`. It will then prompt for confirmation before issuing the delete commands.
+Finds and deletes all stacks containing a specific name, after prompting for confirmation. It sends delete commands in parallel for faster operation.
 
-The script sends all delete commands in parallel and does not wait for the deletions to complete. This allows for faster operation when deleting a large number of stacks. You can monitor the deletion progress in the AWS CloudFormation console.
-
-**Usage:**
-
-```bash
-./delete-stacks-by-name.sh <substring>
-```
-
-**Example:**
-
-To delete all stacks with "weli" in the name:
-
-```bash
-./delete-stacks-by-name.sh weli
-```
-
-**Warning:** This is a destructive operation. Please be careful and double-check the list of stacks before confirming the deletion.
+**Usage:** `./delete-stacks-by-name.sh <substring>`
+**Warning:** This is a destructive operation.
 
 ### `get-stacks-status.sh`
 
-This script finds all active CloudFormation stacks containing a specific substring and displays their current status (e.g., `CREATE_COMPLETE`, `DELETE_IN_PROGRESS`). This is useful for checking the progress of stack deletions.
+Checks and displays the current status of all active stacks containing a specific substring.
 
-**Usage:**
-
-```bash
-./get-stacks-status.sh <substring>
-```
-
-**Example:**
-
-```bash
-./get-stacks-status.sh weli
-```
-
-### Monitoring Stack Deletion
-
-After running the `delete-stacks-by-name.sh` script, you can monitor the deletion progress using the following AWS CLI commands.
-
-**1. Check Overall Stack Status**
-
-To quickly check if a stack is still being deleted or if it has been removed, use `describe-stacks`.
-
-```bash
-aws cloudformation describe-stacks --stack-name <your-stack-name> --query "Stacks[0].StackStatus" --output text
-```
-
-If the command returns `Stack with id ... does not exist`, it means the deletion was successful.
-
-**2. Wait for Deletion to Complete**
-
-If you need a script to pause and wait until a specific stack is fully deleted, use the `cloudformation wait stack-delete-complete` command. This command will block the terminal until the stack is gone.
-
-```bash
-aws cloudformation wait stack-delete-complete --stack-name <your-stack-name>
-```
-
-**3. View Detailed Deletion Events**
-
-To see a detailed log of each resource being deleted within the stack (similar to the AWS Console "Events" tab), use `describe-stack-events`.
-
-```bash
-aws cloudformation describe-stack-events --stack-name <your-stack-name>
-```
+**Usage:** `./get-stacks-status.sh <substring>`
