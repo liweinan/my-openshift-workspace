@@ -99,11 +99,16 @@ sshKey: ssh-rsa AAAA...
 
 ### 4. Tag Subnets
 
-**This is a required step.** The installer needs specific tags on the subnets.
+**This is a critical, mandatory step.** The OpenShift installer relies on specific tags to discover and correctly use the public and private subnets. The `tag-subnets.sh` script automates this process.
+
+It will add the following tags:
+-   **All Subnets**: `kubernetes.io/cluster/<cluster-name> = shared`
+-   **Public Subnets**: `kubernetes.io/role/elb = 1`
+-   **Private Subnets**: `kubernetes.io/role/internal-elb = 1`
 
 ```bash
-# Usage: ./tag-subnets.sh <cluster-name> <vpc-id>
-./tag-subnets.sh my-cluster vpc-0439f81b789b415f4
+# Usage: ./tag-subnets.sh <stack-name> <cluster-name>
+./tag-subnets.sh my-openshift-vpc my-cluster
 ```
 
 ### 5. (Optional) Create a Bastion Host
@@ -142,4 +147,3 @@ Finds and deletes all stacks containing a specific name, after prompting for con
 Checks and displays the current status of all active stacks containing a specific substring.
 
 **Usage:** `./get-stacks-status.sh <substring>`
-
