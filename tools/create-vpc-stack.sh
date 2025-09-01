@@ -1,17 +1,40 @@
 #!/bin/bash
 
-# AWS CLI profile to use. Leave empty to use the default profile.
+# Default values
 AWS_PROFILE=""
-# The AWS region where the stack will be created.
 REGION="us-east-1"
-# The name of the CloudFormation stack.
 STACK_NAME="my-private-cluster-vpc"
-# The CIDR block for the VPC.
 VPC_CIDR="10.0.0.0/16"
-# The number of Availability Zones to use (1, 2, or 3).
 AZ_COUNT=2
-# The path to the CloudFormation template file.
 TEMPLATE_FILE="vpc-template-private-cluster.yaml"
+
+usage() {
+    echo "Usage: $0 [options]"
+    echo "Options:"
+    echo "  -p, --profile <profile>      AWS CLI profile to use. Leave empty to use the default profile."
+    echo "  -r, --region <region>        The AWS region where the stack will be created. (Default: ${REGION})"
+    echo "  -s, --stack-name <name>      The name of the CloudFormation stack. (Default: ${STACK_NAME})"
+    echo "  -c, --vpc-cidr <cidr>        The CIDR block for the VPC. (Default: ${VPC_CIDR})"
+    echo "  -a, --az-count <count>       The number of Availability Zones to use (1, 2, or 3). (Default: ${AZ_COUNT})"
+    echo "  -t, --template-file <file>   The path to the CloudFormation template file. (Default: ${TEMPLATE_FILE})"
+    echo "  -h, --help                   Show this help message."
+    exit 1
+}
+
+# Parse command-line arguments
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -p|--profile) AWS_PROFILE="$2"; shift ;;
+        -r|--region) REGION="$2"; shift ;;
+        -s|--stack-name) STACK_NAME="$2"; shift ;;
+        -c|--vpc-cidr) VPC_CIDR="$2"; shift ;;
+        -a|--az-count) AZ_COUNT="$2"; shift ;;
+        -t|--template-file) TEMPLATE_FILE="$2"; shift ;;
+        -h|--help) usage ;;
+        *) echo "Unknown parameter passed: $1"; usage ;;
+    esac
+    shift
+done
 
 # Construct the AWS CLI command
 CMD="aws cloudformation deploy \
