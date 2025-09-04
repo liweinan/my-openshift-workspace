@@ -38,3 +38,9 @@ log-bundle-*.tar.gz
 # OS generated files
 Thumbs.db
 ehthumbs.db
+
+# Ignored tools
+/tools/openshift-client-mac-arm64-4.20.0-0.nightly-2025-09-01-101753.tar.gz
+/tools/openshift-install-mac-arm64-4.20.0-0.nightly-2025-09-01-101753.tar.gz
+/tools/release.txt
+/tools/sha256sum.txt
