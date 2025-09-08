@@ -36,17 +36,15 @@ for node in $NODES; do
   echo "--------------------------------------------------"
 
   echo "Step 1: Draining node $node..."
-  if ! oc adm drain "$node" --force --ignore-daemonsets --delete-local-data; then
+  if ! oc adm drain "$node" --force --ignore-daemonsets --delete-emptydir-data; then
     echo "Failed to drain node $node. Skipping to next node."
     continue
   fi
 
-  echo "Step 2: Rebooting node $node via SSH..."
-  # Replace 'core' with the appropriate SSH username for your nodes if it's different.
-  if ! ssh -o StrictHostKeyChecking=no core@"$node" 'sudo reboot'; then
-    echo "Failed to SSH and reboot node $node. You may need to reboot it manually."
-    echo "The script will wait for 2 minutes before attempting to uncordon."
-  fi
+  echo "Step 2: Rebooting node $node via oc debug..."
+  # Use oc debug to reboot the node
+  timeout 10s oc debug node/"$node" -- chroot /host systemctl reboot || true
+  echo "Reboot command sent to node $node"
 
   echo "Step 3: Waiting for node $node to come back online..."
   # Wait for the node to become unavailable first
