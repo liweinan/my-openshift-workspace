@@ -21,6 +21,9 @@ openshift-install
 pull-secret.json
 install-config.yaml
 
+# AWS Key Pairs
+*.pem
+
 # OpenShift installation artifacts
 .clusterapi_output/
 auth/
