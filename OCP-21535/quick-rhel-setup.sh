@@ -65,7 +65,11 @@ if subscription-manager identity >/dev/null 2>&1; then
     dnf update -y
     
     printf "\n6. Installing common tools...\n"
-    dnf install -y vim wget curl git htop
+    dnf install -y vim wget curl git
+    
+    # Try to install htop from EPEL if available
+    printf "Installing htop (if available)...\n"
+    dnf install -y htop 2>/dev/null || printf "htop not available in default repositories\n"
     
     printf "\nSetup complete! You can now use dnf to install packages.\n"
 else
@@ -74,7 +78,7 @@ else
 fi
 
 printf "\nUseful commands:\n"
-printf "- Check subscription: subscription-manager status\n"
-printf "- List available repos: subscription-manager repos --list\n"
-printf "- Install package: dnf install <package-name>\n"
-printf "- Search package: dnf search <package-name>\n"
+printf "  - Check subscription: subscription-manager status\n"
+printf "  - List available repos: subscription-manager repos --list\n"
+printf "  - Install package: dnf install <package-name>\n"
+printf "  - Search package: dnf search <package-name>\n"
