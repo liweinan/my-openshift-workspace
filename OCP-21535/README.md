@@ -1,4 +1,4 @@
-# RHEL Infrastructure Deployment
+t pus# RHEL Infrastructure Deployment
 
 这个项目使用AWS CloudFormation自动化部署RHEL 8.10基础设施，包括VPC、安全组、子网和EC2实例。
 
@@ -14,7 +14,7 @@ OCP-21535/
 ├── create-security-group.sh    # 安全组创建脚本
 ├── run-instance.sh             # 实例运行脚本
 ├── register-rhel.sh            # RHEL注册脚本
-├── quick-rhel-setup.sh         # 快速RHEL设置脚本
+├── quick-rhel-setup.sh         # 快速RHEL设置脚本（订阅管理、仓库配置、工具安装）
 ├── check-username.sh           # 用户名检查脚本
 ├── simple-cleanup.sh           # 简单清理脚本
 └── README.md                   # 项目文档
@@ -60,7 +60,22 @@ OCP-21535/
 ssh -i weli-rhel-key.pem ec2-user@<PUBLIC_IP>
 ```
 
-### 3. 清理资源
+### 3. 配置RHEL系统
+
+连接到实例后，运行快速设置脚本：
+
+```bash
+# 在RHEL实例上运行
+sudo ./quick-rhel-setup.sh
+```
+
+这个脚本会：
+- 检查Red Hat订阅状态
+- 配置软件仓库（包括EPEL）
+- 安装常用工具（vim, wget, curl, git, htop）
+- 更新系统包
+
+### 4. 清理资源
 
 ```bash
 # 删除CloudFormation堆栈
@@ -133,6 +148,12 @@ Internet Gateway
    - 查看CloudFormation事件日志
    - 确认AMI ID在目标区域可用
 
+4. **RHEL设置问题**
+   - 如果仓库被禁用，检查Red Hat订阅状态
+   - 使用 `subscription-manager status` 检查订阅
+   - 如果htop安装失败，手动安装EPEL: `sudo dnf install -y epel-release`
+   - 对于未注册系统，使用 `sudo dnf install --enablerepo=*` 临时启用仓库
+
 ### 日志查看
 
 ```bash
@@ -154,6 +175,31 @@ aws ec2 get-console-output --instance-id <INSTANCE_ID> --region us-east-1
 
 ### ssh-connect.sh
 SSH连接脚本，自动获取实例IP并建立连接。
+
+### quick-rhel-setup.sh
+RHEL系统快速配置脚本，提供完整的系统设置流程：
+
+**功能特性：**
+- **订阅管理**: 检查Red Hat订阅状态，支持多种注册方式
+- **仓库配置**: 启用RHEL官方仓库和EPEL仓库
+- **工具安装**: 自动安装常用开发和管理工具
+- **系统更新**: 更新系统包到最新版本
+
+**支持的注册方式：**
+- Red Hat账户注册（用户名/密码）
+- 激活密钥注册
+- 跳过注册（仅限测试环境）
+
+**安装的软件包：**
+- 基础工具: `vim`, `wget`, `curl`, `git`
+- 系统监控: `htop` (来自EPEL仓库)
+- 系统更新: 所有可用更新
+
+**使用方法：**
+```bash
+# 在RHEL实例上运行
+sudo ./quick-rhel-setup.sh
+```
 
 ### cleanup-cloudformation.sh
 清理脚本，删除CloudFormation堆栈和相关资源。
