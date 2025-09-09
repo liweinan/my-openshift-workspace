@@ -61,15 +61,19 @@ if subscription-manager identity >/dev/null 2>&1; then
     subscription-manager repos --enable=rhel-8-for-x86_64-appstream-rpms
     subscription-manager repos --enable=rhel-8-for-x86_64-supplementary-rpms
     
+    # Enable EPEL repository for additional packages like htop
+    printf "Installing and enabling EPEL repository...\n"
+    dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+    
     printf "\n5. Updating system...\n"
     dnf update -y
     
     printf "\n6. Installing common tools...\n"
     dnf install -y vim wget curl git
     
-    # Try to install htop from EPEL if available
-    printf "Installing htop (if available)...\n"
-    dnf install -y htop 2>/dev/null || printf "htop not available in default repositories\n"
+    # Install htop from EPEL
+    printf "Installing htop from EPEL...\n"
+    dnf install -y htop
     
     printf "\nSetup complete! You can now use dnf to install packages.\n"
 else
