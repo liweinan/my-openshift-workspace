@@ -5,7 +5,7 @@ export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
 
 # 设置变量
-STACK_NAME="rhel-infrastructure"
+STACK_NAME="weli-rhel-stack"
 TEMPLATE_FILE="rhel-infrastructure.yaml"
 REGION="us-east-1"
 
@@ -29,47 +29,79 @@ fi
 
 printf "Template validation successful\n\n"
 
+# 检查并删除现有密钥对
+printf "1.5. Checking and cleaning up existing key pairs...\n"
+KEY_PAIR_NAME="weli-rhel-key"
+if aws ec2 describe-key-pairs --key-names "${KEY_PAIR_NAME}" --region "${REGION}" >/dev/null 2>&1; then
+    printf "Key pair ${KEY_PAIR_NAME} already exists. Deleting it first...\n"
+    aws ec2 delete-key-pair --key-name "${KEY_PAIR_NAME}" --region "${REGION}"
+    if [ $? -eq 0 ]; then
+        printf "Old key pair deleted successfully\n"
+    else
+        printf "Warning: Failed to delete old key pair\n"
+    fi
+fi
+
+# 删除本地密钥文件（如果存在）
+if [ -f "${KEY_PAIR_NAME}.pem" ]; then
+    printf "Removing existing local key file: ${KEY_PAIR_NAME}.pem\n"
+    rm -f "${KEY_PAIR_NAME}.pem"
+fi
+
+# 创建新的密钥对
+printf "Creating new key pair: ${KEY_PAIR_NAME}\n"
+aws ec2 create-key-pair \
+    --key-name "${KEY_PAIR_NAME}" \
+    --query 'KeyMaterial' \
+    --output text \
+    --region "${REGION}" > "${KEY_PAIR_NAME}.pem"
+
+if [ $? -eq 0 ]; then
+    chmod 400 "${KEY_PAIR_NAME}.pem"
+    printf "Key pair created and saved: ${KEY_PAIR_NAME}.pem\n"
+else
+    printf "Failed to create key pair\n"
+    exit 1
+fi
+
 # 检查堆栈是否已存在
 printf "2. Checking if stack already exists...\n"
 if aws cloudformation describe-stacks --stack-name "${STACK_NAME}" --region "${REGION}" >/dev/null 2>&1; then
-    printf "Stack ${STACK_NAME} already exists\n"
-    read -p "Do you want to update the stack? (y/n): " -n 1 -r
-    printf "\n"
+    STACK_STATUS=$(aws cloudformation describe-stacks --stack-name "${STACK_NAME}" --region "${REGION}" --query 'Stacks[0].StackStatus' --output text)
+    printf "Stack ${STACK_NAME} already exists with status: ${STACK_STATUS}\n"
     
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        printf "Updating stack...\n"
-        aws cloudformation update-stack \
-            --stack-name "${STACK_NAME}" \
-            --template-body file://"${TEMPLATE_FILE}" \
-            --region "${REGION}" \
-            --capabilities CAPABILITY_NAMED_IAM
+    if [ "$STACK_STATUS" = "DELETE_IN_PROGRESS" ]; then
+        printf "Stack is currently being deleted. Waiting for deletion to complete...\n"
+        aws cloudformation wait stack-delete-complete --stack-name "${STACK_NAME}" --region "${REGION}"
+        printf "Stack deletion completed\n"
+    else
+        printf "Deleting existing stack to ensure clean deployment...\n"
+        aws cloudformation delete-stack --stack-name "${STACK_NAME}" --region "${REGION}"
         
         if [ $? -eq 0 ]; then
-            printf "Stack update initiated. Waiting for completion...\n"
-            aws cloudformation wait stack-update-complete --stack-name "${STACK_NAME}" --region "${REGION}"
+            printf "Stack deletion initiated. Waiting for completion...\n"
+            aws cloudformation wait stack-delete-complete --stack-name "${STACK_NAME}" --region "${REGION}"
+            printf "Stack deletion completed\n"
         else
-            printf "Stack update failed\n"
+            printf "Failed to delete existing stack\n"
             exit 1
         fi
-    else
-        printf "Stack update cancelled\n"
-        exit 0
     fi
+fi
+
+printf "Creating new stack...\n"
+aws cloudformation create-stack \
+    --stack-name "${STACK_NAME}" \
+    --template-body file://"${TEMPLATE_FILE}" \
+    --region "${REGION}" \
+    --capabilities CAPABILITY_NAMED_IAM
+
+if [ $? -eq 0 ]; then
+    printf "Stack creation initiated. Waiting for completion...\n"
+    aws cloudformation wait stack-create-complete --stack-name "${STACK_NAME}" --region "${REGION}"
 else
-    printf "Creating new stack...\n"
-    aws cloudformation create-stack \
-        --stack-name "${STACK_NAME}" \
-        --template-body file://"${TEMPLATE_FILE}" \
-        --region "${REGION}" \
-        --capabilities CAPABILITY_NAMED_IAM
-    
-    if [ $? -eq 0 ]; then
-        printf "Stack creation initiated. Waiting for completion...\n"
-        aws cloudformation wait stack-create-complete --stack-name "${STACK_NAME}" --region "${REGION}"
-    else
-        printf "Stack creation failed\n"
-        exit 1
-    fi
+    printf "Stack creation failed\n"
+    exit 1
 fi
 
 # 检查堆栈状态
@@ -87,8 +119,8 @@ if [ "$STACK_STATUS" = "CREATE_COMPLETE" ] || [ "$STACK_STATUS" = "UPDATE_COMPLE
         --query 'Stacks[0].Outputs' \
         --output table
     
-    # 下载密钥对
-    printf "\n5. Downloading key pair...\n"
+    # 密钥对信息
+    printf "\n5. Key pair information...\n"
     KEY_PAIR_NAME=$(aws cloudformation describe-stacks \
         --stack-name "${STACK_NAME}" \
         --region "${REGION}" \
@@ -96,18 +128,11 @@ if [ "$STACK_STATUS" = "CREATE_COMPLETE" ] || [ "$STACK_STATUS" = "UPDATE_COMPLE
         --output text)
     
     if [ "$KEY_PAIR_NAME" != "None" ] && [ -n "$KEY_PAIR_NAME" ]; then
-        printf "Downloading key pair: ${KEY_PAIR_NAME}\n"
-        aws ec2 create-key-pair \
-            --key-name "${KEY_PAIR_NAME}" \
-            --query 'KeyMaterial' \
-            --output text \
-            --region "${REGION}" > "${KEY_PAIR_NAME}.pem"
-        
-        if [ $? -eq 0 ]; then
-            chmod 400 "${KEY_PAIR_NAME}.pem"
-            printf "Key pair downloaded: ${KEY_PAIR_NAME}.pem\n"
+        printf "Key pair: ${KEY_PAIR_NAME}\n"
+        if [ -f "${KEY_PAIR_NAME}.pem" ]; then
+            printf "Key file: ${KEY_PAIR_NAME}.pem (already created)\n"
         else
-            printf "Failed to download key pair\n"
+            printf "Warning: Key file ${KEY_PAIR_NAME}.pem not found\n"
         fi
     fi
     

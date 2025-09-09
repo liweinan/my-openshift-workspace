@@ -23,9 +23,9 @@ Parameters:
       - 'c5.xlarge'
   
   RHELImageId:
-    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
-    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
-    Description: 'RHEL 8.1 AMI ID'
+    Type: String
+    Default: 'ami-07cf28d58cb5c8f73'
+    Description: 'RHEL 8.10 AMI ID'
   
   VpcCidr:
     Type: String
@@ -137,22 +137,22 @@ Resources:
         - Key: Name
           Value: !Sub '${AWS::StackName}-sg'
 
-  # EC2 Key Pair
-  KeyPair:
-    Type: AWS::EC2::KeyPair
-    Properties:
-      KeyName: !Ref KeyPairName
-      Tags:
-        - Key: Name
-          Value: !Ref KeyPairName
+  # EC2 Key Pair - Created by deployment script
+  # KeyPair:
+  #   Type: AWS::EC2::KeyPair
+  #   Properties:
+  #     KeyName: !Ref KeyPairName
+  #     Tags:
+  #       - Key: Name
+  #         Value: !Ref KeyPairName
 
   # EC2 Instance
   RHELInstance:
     Type: AWS::EC2::Instance
     Properties:
-      ImageId: ami-0258229bf3cd8af20  # RHEL 8.1 AMI
+      ImageId: !Ref RHELImageId
       InstanceType: !Ref InstanceType
-      KeyName: !Ref KeyPair
+      KeyName: !Ref KeyPairName
       SecurityGroupIds:
         - !Ref SecurityGroup
       SubnetId: !Ref Subnet
@@ -196,7 +196,7 @@ Outputs:
 
   KeyPairName:
     Description: 'EC2 Key Pair Name'
-    Value: !Ref KeyPair
+    Value: !Ref KeyPairName
     Export:
       Name: !Sub '${AWS::StackName}-KeyPair-Name'
 
