@@ -47,3 +47,5 @@ ehthumbs.db
 *.tgz
 release.txt
 sha256sum.txt
+
+install-config.yaml*
