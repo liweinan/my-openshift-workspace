@@ -157,6 +157,9 @@ if [ "${DRY_RUN}" = false ]; then
     echo "  - All terraform files"
     echo "  - All log files"
     echo "  - All temporary files"
+    echo "  - OpenShift installer binaries and packages"
+    echo "  - Release and checksum files"
+    echo "  - Pull secret files"
     echo ""
     print_info "OCP project directories will be preserved (contain useful scripts)"
     echo ""
@@ -232,9 +235,22 @@ backup_and_remove_by_pattern "*~" "Removed tilde backup files" "tilde-backups"
 print_header "10. Cleaning Installation Artifacts"
 # Remove specific installation artifacts
 backup_and_remove_by_pattern "log-bundle-*.tar.gz" "Removed log bundle files" "log-bundles"
-backup_and_remove_by_pattern "*.pem" "Removed PEM key files" "pem-keys"
+backup_and_remove_by_pattern "*.pem" "Removed PEM key files"
 
-print_header "11. Preserving OCP Project Directories"
+print_header "11. Cleaning OpenShift Installer Binaries and Packages"
+# Remove OpenShift installer binaries
+backup_and_remove_by_pattern "openshift-install" "Removed OpenShift installer binary" "installer-binaries"
+backup_and_remove_by_pattern "openshift-install-*.tar.gz" "Removed OpenShift installer packages" "installer-packages"
+backup_and_remove_by_pattern "openshift-client-*.tar.gz" "Removed OpenShift client packages" "client-packages"
+
+print_header "12. Cleaning Release and Checksum Files"
+# Remove release and checksum files
+backup_and_remove_by_pattern "release.txt" "Removed release.txt files" "release-files"
+backup_and_remove_by_pattern "sha256sum.txt" "Removed sha256sum.txt files" "checksum-files"
+backup_and_remove_by_pattern "pull-secret.json" "Removed pull-secret.json files" "pull-secrets"
+backup_and_remove_by_pattern "pull-secret.txt" "Removed pull-secret.txt files" "pull-secrets"
+
+print_header "13. Preserving OCP Project Directories"
 echo "  OCP project directories contain useful scripts and are preserved:"
 OCP_DIRS=()
 while IFS= read -r -d '' dir; do

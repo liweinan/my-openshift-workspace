@@ -84,6 +84,17 @@
 - `log-bundle-*.tar.gz` - 日志包文件
 - `*.pem` - PEM密钥文件
 
+### OpenShift安装器和客户端
+- `openshift-install` - OpenShift安装器二进制文件
+- `openshift-install-*.tar.gz` - OpenShift安装器包
+- `openshift-client-*.tar.gz` - OpenShift客户端包
+
+### 发布和校验文件
+- `release.txt` - 发布信息文件
+- `sha256sum.txt` - SHA256校验和文件
+- `pull-secret.json` - 拉取密钥JSON文件
+- `pull-secret.txt` - 拉取密钥文本文件
+
 ## 安全特性
 
 ### 确认提示
