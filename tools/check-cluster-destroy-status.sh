@@ -9,6 +9,7 @@ if [ "$#" -lt 1 ]; then
   echo "Usage: $0 <installer-working-directory> [aws-region]"
   echo "Example: $0 ./work1 us-east-2"
   echo "Example: $0 ./work1  # uses AWS_REGION env var or defaults to us-east-1"
+  echo "Example: $0 /Users/weli/works/oc-swarm/openshift-progress/works us-west-2"
   exit 1
 fi
 
@@ -24,6 +25,7 @@ fi
 METADATA_FILE="${INSTALLER_DIR}/metadata.json"
 if [ ! -f "${METADATA_FILE}" ]; then
   echo "Error: metadata.json not found in '${INSTALLER_DIR}'."
+  echo "Please check the path and ensure metadata.json exists."
   exit 1
 fi
 
@@ -31,6 +33,7 @@ fi
 echo "=== Cluster Destroy Status Check ==="
 echo "Installer directory: ${INSTALLER_DIR}"
 echo "AWS Region: ${AWS_REGION}"
+echo "Metadata file: ${METADATA_FILE}"
 echo ""
 
 # Extract cluster information from metadata.json

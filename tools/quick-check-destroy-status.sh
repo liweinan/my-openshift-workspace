@@ -8,6 +8,7 @@ set -o pipefail
 if [ "$#" -lt 1 ]; then
   echo "Usage: $0 <installer-working-directory> [aws-region]"
   echo "Example: $0 ./work1 us-east-2"
+  echo "Example: $0 /Users/weli/works/oc-swarm/openshift-progress/works us-east-2"
   exit 1
 fi
 
@@ -18,12 +19,20 @@ AWS_REGION=${2:-${AWS_REGION:-"us-east-1"}}
 METADATA_FILE="${INSTALLER_DIR}/metadata.json"
 if [ ! -f "${METADATA_FILE}" ]; then
   echo "Error: metadata.json not found in '${INSTALLER_DIR}'."
+  echo "Please check the path and ensure metadata.json exists."
   exit 1
 fi
 
 INFRA_ID=$(jq -r '.infraID' "${METADATA_FILE}")
-echo "Checking destroy status for infraID: ${INFRA_ID}"
-echo "Region: ${AWS_REGION}"
+CLUSTER_NAME=$(jq -r '.clusterName' "${METADATA_FILE}")
+CLUSTER_ID=$(jq -r '.clusterID' "${METADATA_FILE}")
+
+echo "Checking destroy status for:"
+echo "  Cluster Name: ${CLUSTER_NAME}"
+echo "  Cluster ID: ${CLUSTER_ID}"
+echo "  Infra ID: ${INFRA_ID}"
+echo "  Region: ${AWS_REGION}"
+echo "  Metadata file: ${METADATA_FILE}"
 echo ""
 
 # --- Quick check for tagged resources ---
