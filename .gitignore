@@ -49,3 +49,6 @@ release.txt
 sha256sum.txt
 
 install-config.yaml*
+
+# OCP-25698 generated install config files
+OCP-25698/install-config-cluster-*.yaml
