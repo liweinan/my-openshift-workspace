@@ -293,6 +293,7 @@ Are you sure you want to continue? (yes/no):
 ### OCP项目文档
 - [OCP-21535](OCP-21535/README.md) - RHEL基础设施设置
 - [OCP-21984](OCP-21984/README.md) - 集群工作节点配置
+- [OCP-25698](OCP-25698/README.md) - 多集群共享子网测试
 
 ## 🤝 贡献
 
