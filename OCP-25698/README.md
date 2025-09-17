@@ -95,6 +95,45 @@ INFO Removed tag kubernetes.io/cluster/jialiu43-bz-priv-z6hld: shared  arn="arn:
 - 为子网添加共享标签
 - 提供完整的测试步骤说明
 
+### scale-cluster.sh
+
+这个脚本用于扩展现有的OpenShift集群工作节点：
+
+#### 功能
+- 支持指定kubeconfig路径
+- 自动发现或手动指定MachineSet
+- 支持等待扩容完成
+- 提供干运行模式
+- 实时显示扩容进度和状态
+
+#### 使用方法
+```bash
+# 基本用法 - 扩容到4个副本
+./scale-cluster.sh --kubeconfig /path/to/kubeconfig
+
+# 扩容到6个副本
+./scale-cluster.sh --kubeconfig /path/to/kubeconfig --replicas 6
+
+# 指定MachineSet名称
+./scale-cluster.sh --kubeconfig /path/to/kubeconfig --machineset my-cluster-abc123-worker-us-east-2a
+
+# 等待扩容完成
+./scale-cluster.sh --kubeconfig /path/to/kubeconfig --wait
+
+# 干运行模式
+./scale-cluster.sh --kubeconfig /path/to/kubeconfig --dry-run
+```
+
+#### 参数说明
+- `-k, --kubeconfig <path>`: Kubeconfig文件路径（必需）
+- `-r, --replicas <number>`: 目标副本数（默认：4）
+- `-n, --namespace <name>`: MachineSet命名空间（默认：openshift-machine-api）
+- `-m, --machineset <name>`: 指定MachineSet名称（可选）
+- `-w, --wait`: 等待扩容完成
+- `-t, --timeout <seconds>`: 等待超时时间（默认：600秒）
+- `-d, --dry-run`: 仅显示将要执行的操作，不实际执行
+- `-h, --help`: 显示帮助信息
+
 #### 使用方法
 ```bash
 # 基本用法（使用默认参数）
@@ -183,7 +222,18 @@ oc get machinesets
 
 ### 8. 扩缩容测试
 
-#### 获取MachineSet名称
+#### 使用自动化脚本（推荐）
+```bash
+# 集群A扩缩容
+./scale-cluster.sh --kubeconfig cluster-a/auth/kubeconfig --replicas 4 --wait
+
+# 集群B扩缩容
+./scale-cluster.sh --kubeconfig cluster-b/auth/kubeconfig --replicas 4 --wait
+```
+
+#### 手动扩缩容（备选方案）
+
+##### 获取MachineSet名称
 ```bash
 # 查看所有MachineSet
 oc get machinesets -n openshift-machine-api
@@ -192,7 +242,7 @@ oc get machinesets -n openshift-machine-api
 oc describe machineset <machineset-name> -n openshift-machine-api
 ```
 
-#### 执行扩缩容
+##### 执行扩缩容
 ```bash
 # 集群A扩缩容
 export KUBECONFIG=cluster-a/auth/kubeconfig
@@ -205,7 +255,7 @@ oc get machinesets -n openshift-machine-api
 oc scale machineset <machineset-name> -n openshift-machine-api --replicas=4
 ```
 
-#### 验证扩缩容结果
+##### 验证扩缩容结果
 ```bash
 # 查看MachineSet状态
 oc get machinesets -n openshift-machine-api
@@ -227,6 +277,10 @@ openshift-install destroy cluster --dir cluster-a
 
 ### 10. 集群B再次扩缩容
 ```bash
+# 使用自动化脚本（推荐）
+./scale-cluster.sh --kubeconfig cluster-b/auth/kubeconfig --replicas 4 --wait
+
+# 或手动执行
 export KUBECONFIG=cluster-b/auth/kubeconfig
 oc get machinesets -n openshift-machine-api
 oc scale machineset <machineset-name> -n openshift-machine-api --replicas=4
@@ -286,6 +340,20 @@ MachineSet名称通常遵循以下格式：
 - `weli-clus-b-def456-worker-us-east-2b`
 
 ### 完整的扩缩容流程示例
+
+#### 使用自动化脚本（推荐）
+```bash
+# 1. 集群A扩缩容
+./scale-cluster.sh --kubeconfig /path/to/cluster-a/auth/kubeconfig --replicas 4 --wait
+
+# 2. 集群B扩缩容
+./scale-cluster.sh --kubeconfig /path/to/cluster-b/auth/kubeconfig --replicas 4 --wait
+
+# 3. 集群B再次扩缩容（测试子网重用）
+./scale-cluster.sh --kubeconfig /path/to/cluster-b/auth/kubeconfig --replicas 6 --wait
+```
+
+#### 手动扩缩容流程
 ```bash
 # 1. 切换到集群A
 export KUBECONFIG=/path/to/cluster-a/auth/kubeconfig
