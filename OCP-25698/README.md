@@ -106,6 +106,12 @@ INFO Removed tag kubernetes.io/cluster/jialiu43-bz-priv-z6hld: shared  arn="arn:
   --stack-name my-shared-vpc \
   --vpc-cidr 10.0.0.0/16 \
   --az-count 2
+
+# 使用已存在的VPC（跳过VPC创建）
+./setup-ocp-25698-test.sh \
+  --region us-east-2 \
+  --stack-name existing-vpc-stack \
+  --skip-vpc
 ```
 
 #### 参数说明
@@ -113,6 +119,7 @@ INFO Removed tag kubernetes.io/cluster/jialiu43-bz-priv-z6hld: shared  arn="arn:
 - `-s, --stack-name`: VPC堆栈名称（默认：ocp-25698-shared-vpc）
 - `-c, --vpc-cidr`: VPC CIDR（默认：10.0.0.0/16）
 - `-a, --az-count`: 可用区数量（默认：2）
+- `--skip-vpc`: 跳过VPC创建，使用已存在的VPC
 - `-h, --help`: 显示帮助信息
 
 ## 手动执行步骤

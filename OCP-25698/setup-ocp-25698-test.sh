@@ -36,10 +36,11 @@ usage() {
     echo "  -s, --stack-name <name>      VPC stack name (default: ocp-25698-shared-vpc)"
     echo "  -c, --vpc-cidr <cidr>        VPC CIDR (default: 10.0.0.0/16)"
     echo "  -a, --az-count <count>       Number of AZs (default: 2)"
+    echo "  --skip-vpc                   Skip VPC creation, use existing VPC"
     echo "  -h, --help                   Show this help message"
     echo ""
     echo "This script sets up the infrastructure for OCP-25698 test case:"
-    echo "  - Creates a VPC with public and private subnets"
+    echo "  - Creates a VPC with public and private subnets (unless --skip-vpc is used)"
     echo "  - Generates install-config.yaml templates"
     echo "  - Provides step-by-step instructions for the test"
     exit 1
@@ -50,6 +51,7 @@ REGION="us-east-2"
 STACK_NAME="ocp-25698-shared-vpc"
 VPC_CIDR="10.0.0.0/16"
 AZ_COUNT=2
+SKIP_VPC=false
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
@@ -58,6 +60,7 @@ while [[ "$#" -gt 0 ]]; do
         -s|--stack-name) STACK_NAME="$2"; shift ;;
         -c|--vpc-cidr) VPC_CIDR="$2"; shift ;;
         -a|--az-count) AZ_COUNT="$2"; shift ;;
+        --skip-vpc) SKIP_VPC=true ;;
         -h|--help) usage ;;
         *) echo "Unknown parameter passed: $1"; usage ;;
     esac
@@ -67,27 +70,43 @@ done
 print_info "Setting up OCP-25698 test infrastructure"
 print_info "Region: ${REGION}"
 print_info "Stack Name: ${STACK_NAME}"
-print_info "VPC CIDR: ${VPC_CIDR}"
-print_info "AZ Count: ${AZ_COUNT}"
-echo ""
-
-# Step 1: Create VPC
-print_info "Step 1: Creating VPC with public and private subnets..."
-../tools/create-vpc-stack.sh \
-  --region "${REGION}" \
-  --stack-name "${STACK_NAME}" \
-  --vpc-cidr "${VPC_CIDR}" \
-  --az-count "${AZ_COUNT}" \
-  --template-file "../tools/vpc-template-public-cluster.yaml"
-
-if [ $? -eq 0 ]; then
-    print_success "VPC created successfully"
-else
-    print_error "Failed to create VPC"
-    exit 1
+if [ "${SKIP_VPC}" = false ]; then
+    print_info "VPC CIDR: ${VPC_CIDR}"
+    print_info "AZ Count: ${AZ_COUNT}"
 fi
-
+if [ "${SKIP_VPC}" = true ]; then
+    print_info "Skip VPC creation: Using existing VPC"
+fi
 echo ""
+
+# Step 1: Create VPC (if not skipped)
+if [ "${SKIP_VPC}" = false ]; then
+    print_info "Step 1: Creating VPC with public and private subnets..."
+    ../tools/create-vpc-stack.sh \
+      --region "${REGION}" \
+      --stack-name "${STACK_NAME}" \
+      --vpc-cidr "${VPC_CIDR}" \
+      --az-count "${AZ_COUNT}" \
+      --template-file "../tools/vpc-template-public-cluster.yaml"
+
+    if [ $? -eq 0 ]; then
+        print_success "VPC created successfully"
+    else
+        print_error "Failed to create VPC"
+        exit 1
+    fi
+    echo ""
+else
+    print_info "Step 1: Skipping VPC creation, using existing VPC: ${STACK_NAME}"
+    
+    # Verify the VPC stack exists
+    if ! aws cloudformation describe-stacks --stack-name "${STACK_NAME}" --region "${REGION}" >/dev/null 2>&1; then
+        print_error "VPC stack '${STACK_NAME}' not found in region '${REGION}'"
+        exit 1
+    fi
+    print_success "VPC stack verified: ${STACK_NAME}"
+    echo ""
+fi
 
 # Step 2: Get VPC outputs and generate install-config
 print_info "Step 2: Getting VPC outputs and generating install-config templates..."
@@ -150,10 +169,10 @@ echo ""
 print_info "Step 3: Tagging subnets for shared cluster usage..."
 
 # Tag subnets for cluster A
-../tools/tag-subnets.sh "${STACK_NAME}" "cluster-a"
+../tools/tag-subnets.sh "${STACK_NAME}" "cluster-a" "${REGION}"
 
 # Tag subnets for cluster B (shared)
-../tools/tag-subnets.sh "${STACK_NAME}" "cluster-b"
+../tools/tag-subnets.sh "${STACK_NAME}" "cluster-b" "${REGION}"
 
 print_success "Subnets tagged for shared usage"
 echo ""

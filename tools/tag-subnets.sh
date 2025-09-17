@@ -1,16 +1,16 @@
 #!/bin/bash
 
 # Check for required arguments
-if [ "$#" -ne 2 ]; then
-  echo "Usage: $0 <stack-name> <cluster-name>"
+if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then
+  echo "Usage: $0 <stack-name> <cluster-name> [aws-region]"
   echo "Please provide the CloudFormation stack name and the desired OpenShift cluster name."
+  echo "AWS region is optional (default: us-east-1)."
   exit 1
 fi
 
 STACK_NAME=$1
 CLUSTER_NAME=$2
-# You can specify your AWS region here if needed.
-REGION="us-east-1"
+REGION="${3:-us-east-1}"
 
 # Check if jq is installed
 if ! command -v jq &> /dev/null
