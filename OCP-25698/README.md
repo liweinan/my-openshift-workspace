@@ -182,14 +182,42 @@ oc get machinesets
 ```
 
 ### 8. 扩缩容测试
+
+#### 获取MachineSet名称
+```bash
+# 查看所有MachineSet
+oc get machinesets -n openshift-machine-api
+
+# 查看MachineSet详细信息
+oc describe machineset <machineset-name> -n openshift-machine-api
+```
+
+#### 执行扩缩容
 ```bash
 # 集群A扩缩容
 export KUBECONFIG=cluster-a/auth/kubeconfig
-oc scale machineset <machineset-name> --replicas=4
+oc get machinesets -n openshift-machine-api
+oc scale machineset <machineset-name> -n openshift-machine-api --replicas=4
 
 # 集群B扩缩容
 export KUBECONFIG=cluster-b/auth/kubeconfig
-oc scale machineset <machineset-name> --replicas=4
+oc get machinesets -n openshift-machine-api
+oc scale machineset <machineset-name> -n openshift-machine-api --replicas=4
+```
+
+#### 验证扩缩容结果
+```bash
+# 查看MachineSet状态
+oc get machinesets -n openshift-machine-api
+
+# 查看Machine状态
+oc get machines -n openshift-machine-api
+
+# 查看节点状态
+oc get nodes
+
+# 等待新节点就绪
+oc get nodes -w
 ```
 
 ### 9. 销毁集群A
@@ -200,7 +228,12 @@ openshift-install destroy cluster --dir cluster-a
 ### 10. 集群B再次扩缩容
 ```bash
 export KUBECONFIG=cluster-b/auth/kubeconfig
-oc scale machineset <machineset-name> --replicas=4
+oc get machinesets -n openshift-machine-api
+oc scale machineset <machineset-name> -n openshift-machine-api --replicas=4
+
+# 验证扩缩容结果
+oc get nodes
+oc get machines -n openshift-machine-api
 ```
 
 ### 11. 销毁集群B
@@ -241,6 +274,39 @@ INFO Removed tag kubernetes.io/cluster/<INFRA_ID>: shared  arn="arn:aws:ec2:us-e
 - 新节点应该正确加入集群
 - 节点应该获得正确的网络配置
 
+### MachineSet名称格式
+MachineSet名称通常遵循以下格式：
+- `weli-clus-a-<random-string>-worker-<az>` (集群A)
+- `weli-clus-b-<random-string>-worker-<az>` (集群B)
+
+例如：
+- `weli-clus-a-abc123-worker-us-east-2a`
+- `weli-clus-a-abc123-worker-us-east-2b`
+- `weli-clus-b-def456-worker-us-east-2a`
+- `weli-clus-b-def456-worker-us-east-2b`
+
+### 完整的扩缩容流程示例
+```bash
+# 1. 切换到集群A
+export KUBECONFIG=/path/to/cluster-a/auth/kubeconfig
+
+# 2. 查看MachineSet
+oc get machinesets -n openshift-machine-api
+
+# 3. 扩缩容（假设MachineSet名称是 weli-clus-a-abc123-worker-us-east-2a）
+oc scale machineset weli-clus-a-abc123-worker-us-east-2a -n openshift-machine-api --replicas=4
+
+# 4. 等待新节点就绪
+oc get nodes -w
+
+# 5. 切换到集群B
+export KUBECONFIG=/path/to/cluster-b/auth/kubeconfig
+
+# 6. 对集群B执行相同操作
+oc get machinesets -n openshift-machine-api
+oc scale machineset <machineset-name> -n openshift-machine-api --replicas=4
+```
+
 ## 故障排除
 
 ### 常见问题
@@ -274,8 +340,18 @@ aws ec2 describe-vpcs --vpc-ids <vpc-id>
 
 # 检查集群状态
 oc get nodes -o wide
-oc get machinesets
-oc get machines
+oc get machinesets -n openshift-machine-api
+oc get machines -n openshift-machine-api
+
+# 检查MachineSet详细信息
+oc describe machineset <machineset-name> -n openshift-machine-api
+
+# 检查Machine状态
+oc describe machine <machine-name> -n openshift-machine-api
+
+# 检查节点标签和污点
+oc get nodes --show-labels
+oc describe node <node-name>
 ```
 
 ## 依赖要求
