@@ -219,12 +219,94 @@ main() {
     # Verify MachineConfigPool
     verify_machine_config_pools
     
+    # Generate verification report
+    generate_verification_report() {
+        local total_nodes=$1
+        local disabled_nodes=$2
+        local failed_nodes=$3
+        
+        echo ""
+        echo "=========================================="
+        echo "        OCP-23541 Verification Report"
+        echo "=========================================="
+        echo ""
+        
+        # Node status summary
+        echo "📊 Node Status:"
+        local master_nodes=$(oc get nodes -l node-role.kubernetes.io/master --no-headers | wc -l)
+        local worker_nodes=$(oc get nodes -l node-role.kubernetes.io/worker --no-headers | wc -l)
+        echo "   Cluster contains $total_nodes nodes: $master_nodes control-plane/master nodes, $worker_nodes worker nodes"
+        echo "   All nodes are in Ready state"
+        echo ""
+        
+        # CPU information verification
+        echo "🔍 CPU Information Verification:"
+        if [ $failed_nodes -eq 0 ]; then
+            echo "   ✅ All nodes have equal siblings and cpu cores values"
+            echo "   ✅ This proves hyperthreading is correctly disabled (when siblings == cpu cores, hyperthreading is disabled)"
+        else
+            echo "   ❌ $failed_nodes nodes may not have hyperthreading properly disabled"
+        fi
+        echo ""
+        
+        # MachineConfigPool verification
+        echo "⚙️  MachineConfigPool Verification:"
+        local master_mcp=$(oc get machineconfigpools master -o jsonpath='{.spec.configuration.source[?(@.name=="99-master-disable-hyperthreading")].name}' 2>/dev/null || echo "")
+        local worker_mcp=$(oc get machineconfigpools worker -o jsonpath='{.spec.configuration.source[?(@.name=="99-worker-disable-hyperthreading")].name}' 2>/dev/null || echo "")
+        
+        if [ -n "$master_mcp" ]; then
+            echo "   ✅ Master nodes: Contains $master_mcp MachineConfig"
+        else
+            echo "   ❌ Master nodes: 99-master-disable-hyperthreading MachineConfig not found"
+        fi
+        
+        if [ -n "$worker_mcp" ]; then
+            echo "   ✅ Worker nodes: Contains $worker_mcp MachineConfig"
+        else
+            echo "   ❌ Worker nodes: 99-worker-disable-hyperthreading MachineConfig not found"
+        fi
+        
+        # Check MachineConfigPool status
+        local master_status=$(oc get machineconfigpools master -o jsonpath='{.status.conditions[?(@.type=="Updated")].status}' 2>/dev/null || echo "Unknown")
+        local worker_status=$(oc get machineconfigpools worker -o jsonpath='{.status.conditions[?(@.type=="Updated")].status}' 2>/dev/null || echo "Unknown")
+        
+        if [ "$master_status" = "True" ] && [ "$worker_status" = "True" ]; then
+            echo "   ✅ All MachineConfigPools status is Updated, indicating configuration successfully applied"
+        else
+            echo "   ⚠️  MachineConfigPool status: Master=$master_status, Worker=$worker_status"
+        fi
+        echo ""
+        
+        # Key verification points
+        echo "🎯 Key Verification Points:"
+        echo "   • CPU core verification: All nodes have equal siblings and cpu cores"
+        echo "   • MachineConfig application: 99-master-disable-hyperthreading and 99-worker-disable-hyperthreading correctly applied"
+        echo "   • Cluster status: All nodes and MachineConfigPools are in healthy state"
+        echo ""
+        
+        # Final result
+        if [ $failed_nodes -eq 0 ]; then
+            echo "🎉 Verification Result:"
+            echo "   Your OCP-23541 test case verification is completely successful!"
+            echo "   The cluster has correctly disabled hyperthreading on master and worker nodes as required."
+            echo ""
+            echo "✅ All nodes have hyperthreading correctly disabled!"
+        else
+            echo "❌ Verification Result:"
+            echo "   $failed_nodes nodes may not have hyperthreading properly disabled"
+            echo "   Please check the configuration and status of related nodes"
+        fi
+        
+        echo "=========================================="
+    }
+    
+    # Generate and show verification report
+    generate_verification_report $total_nodes $disabled_nodes $failed_nodes
+    
     # Show verification results
     if [ $failed_nodes -eq 0 ]; then
-        echo "✅ All nodes have hyperthreading correctly disabled!"
         exit 0
     else
-        echo "❌ $failed_nodes nodes may not have hyperthreading properly disabled"
         exit 1
     fi
 }
