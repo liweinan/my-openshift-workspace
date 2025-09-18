@@ -52,7 +52,17 @@ echo "Worker AMI: $WORKER_AMI"
 echo "Master AMI: $MASTER_AMI"
 echo ""
 
-print_info "Example 6: Batch get AMIs for multiple regions"
+print_info "Example 6: Use specific openshift-install binary"
+OPENSHIFT_INSTALL_PATH="~/works/oc-swarm/openshift-versions/420rc1/openshift-install"
+if [ -f "$OPENSHIFT_INSTALL_PATH" ]; then
+    AMI_ID_SPECIFIC=$(./tools/find-rhcos-ami.sh -p "$OPENSHIFT_INSTALL_PATH" -r us-east-2 -q)
+    echo "AMI ID using specific openshift-install: $AMI_ID_SPECIFIC"
+else
+    echo "Specific openshift-install not found at: $OPENSHIFT_INSTALL_PATH"
+fi
+echo ""
+
+print_info "Example 7: Batch get AMIs for multiple regions"
 REGIONS=("us-east-1" "us-east-2" "us-west-1" "us-west-2")
 echo "AMI IDs for multiple regions:"
 for region in "${REGIONS[@]}"; do

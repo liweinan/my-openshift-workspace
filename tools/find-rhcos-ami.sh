@@ -34,6 +34,7 @@ REGION="us-east-2"
 ARCHITECTURE="x86_64"
 OUTPUT_FORMAT="id"  # id, json, export
 QUIET=false
+OPENSHIFT_INSTALL_PATH=""
 
 # Usage function
 usage() {
@@ -47,6 +48,7 @@ OPTIONS:
     -r, --region REGION       AWS region (default: us-east-2)
     -a, --arch ARCHITECTURE   Architecture (default: x86_64)
     -f, --format FORMAT       Output format: id, json, export (default: id)
+    -p, --path PATH           Path to openshift-install binary (optional)
     -q, --quiet               Quiet mode - only output AMI ID
     -h, --help                Show this help message
 
@@ -61,6 +63,7 @@ EXAMPLES:
     $0 -r us-east-1 -f export             # Output as export command
     $0 -r eu-west-1 -f json               # Output full JSON
     $0 -r ap-southeast-1 -q               # Quiet mode, only AMI ID
+    $0 -p /path/to/openshift-install      # Use specific openshift-install binary
 
 EOF
 }
@@ -78,6 +81,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -f|--format)
             OUTPUT_FORMAT="$2"
+            shift 2
+            ;;
+        -p|--path)
+            OPENSHIFT_INSTALL_PATH="$2"
             shift 2
             ;;
         -q|--quiet)
@@ -107,11 +114,25 @@ case "$OUTPUT_FORMAT" in
         ;;
 esac
 
-# Check if openshift-install is available
-if ! command -v openshift-install &> /dev/null; then
-    print_error "openshift-install command not found"
-    print_error "Please ensure openshift-install is installed and in your PATH"
-    exit 1
+# Determine openshift-install command
+OPENSHIFT_INSTALL_CMD=""
+if [ -n "$OPENSHIFT_INSTALL_PATH" ]; then
+    # Use specified path
+    if [ -f "$OPENSHIFT_INSTALL_PATH" ] && [ -x "$OPENSHIFT_INSTALL_PATH" ]; then
+        OPENSHIFT_INSTALL_CMD="$OPENSHIFT_INSTALL_PATH"
+    else
+        print_error "openshift-install binary not found or not executable: $OPENSHIFT_INSTALL_PATH"
+        exit 1
+    fi
+else
+    # Use openshift-install from PATH
+    if command -v openshift-install &> /dev/null; then
+        OPENSHIFT_INSTALL_CMD="openshift-install"
+    else
+        print_error "openshift-install command not found"
+        print_error "Please ensure openshift-install is installed and in your PATH, or use -p option to specify the path"
+        exit 1
+    fi
 fi
 
 # Check if jq is available
@@ -131,8 +152,9 @@ main() {
     
     # Get the stream JSON from openshift-install
     local stream_json
-    if ! stream_json=$(openshift-install coreos print-stream-json 2>/dev/null); then
+    if ! stream_json=$("$OPENSHIFT_INSTALL_CMD" coreos print-stream-json 2>/dev/null); then
         print_error "Failed to get RHCOS stream JSON from openshift-install"
+        print_error "Command used: $OPENSHIFT_INSTALL_CMD"
         exit 1
     fi
     
