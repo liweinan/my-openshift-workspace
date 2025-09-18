@@ -1,0 +1,64 @@
+#!/bin/bash
+
+# Example usage of find-rhcos-ami.sh script
+# Demonstrates different ways to use the AMI discovery script
+
+set -e
+
+# Color codes
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+print_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+echo "=========================================="
+echo "    RHCOS AMI Discovery Script Examples"
+echo "=========================================="
+echo ""
+
+print_info "Example 1: Get AMI ID for us-east-2 (default)"
+AMI_ID=$(./tools/find-rhcos-ami.sh -r us-east-2 -q)
+echo "AMI ID: $AMI_ID"
+echo ""
+
+print_info "Example 2: Get AMI ID for us-west-2"
+AMI_ID_WEST=$(./tools/find-rhcos-ami.sh -r us-west-2 -q)
+echo "AMI ID: $AMI_ID_WEST"
+echo ""
+
+print_info "Example 3: Get export command for environment variable"
+EXPORT_CMD=$(./tools/find-rhcos-ami.sh -r us-east-1 -f export -q)
+echo "$EXPORT_CMD"
+eval "$EXPORT_CMD"
+echo "Environment variable RHCOS_AMI_ID is now set to: $RHCOS_AMI_ID"
+echo ""
+
+print_info "Example 4: Get full JSON information"
+echo "Full AMI information for us-east-2:"
+./tools/find-rhcos-ami.sh -r us-east-2 -f json -q
+echo ""
+
+print_info "Example 5: Use in install-config.yaml generation"
+WORKER_AMI=$(./tools/find-rhcos-ami.sh -r us-east-2 -q)
+MASTER_AMI=$(./tools/find-rhcos-ami.sh -r us-east-2 -q)
+echo "Worker AMI: $WORKER_AMI"
+echo "Master AMI: $MASTER_AMI"
+echo ""
+
+print_info "Example 6: Batch get AMIs for multiple regions"
+REGIONS=("us-east-1" "us-east-2" "us-west-1" "us-west-2")
+echo "AMI IDs for multiple regions:"
+for region in "${REGIONS[@]}"; do
+    ami=$(./tools/find-rhcos-ami.sh -r "$region" -q 2>/dev/null || echo "N/A")
+    echo "  $region: $ami"
+done
+echo ""
+
+print_success "All examples completed successfully!"
