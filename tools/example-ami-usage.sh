@@ -62,7 +62,22 @@ else
 fi
 echo ""
 
-print_info "Example 7: Batch get AMIs for multiple regions"
+print_info "Example 7: Dual AMI mode - same region"
+echo "Generate install-config snippet with different AMIs for master and worker:"
+./tools/find-rhcos-ami.sh -d -f install-config -q
+echo ""
+
+print_info "Example 8: Dual AMI mode - different regions"
+echo "Generate install-config snippet with master from us-east-1 and worker from us-west-2:"
+./tools/find-rhcos-ami.sh -d --master-region us-east-1 --worker-region us-west-2 -f install-config -q
+echo ""
+
+print_info "Example 9: Dual AMI export commands"
+echo "Export commands for dual AMI configuration:"
+./tools/find-rhcos-ami.sh -d --master-region us-east-1 --worker-region us-west-2 -f export -q
+echo ""
+
+print_info "Example 10: Batch get AMIs for multiple regions"
 REGIONS=("us-east-1" "us-east-2" "us-west-1" "us-west-2")
 echo "AMI IDs for multiple regions:"
 for region in "${REGIONS[@]}"; do
