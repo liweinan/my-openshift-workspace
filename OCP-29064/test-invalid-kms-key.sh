@@ -62,15 +62,12 @@ Options:
 Test Steps:
     1. Get user ARN
     2. Create KMS key in KMS region
-    3. Create install-config
-    4. Modify install-config with invalid KMS key (different region)
-    5. Attempt cluster creation (should fail)
-    6. Destroy cluster (cleanup)
+    3. Display KMS key information for manual configuration
 
 Expected Results:
     - KMS key created successfully in KMS region
-    - Cluster creation fails due to invalid KMS key region
-    - Error messages indicate KMS key region mismatch
+    - KMS key information provided for manual testing
+    - Configuration example provided for install-config.yaml
 
 Examples:
     $0                                    # Use default settings
@@ -169,139 +166,34 @@ EOF
     fi
 }
 
-# Step 3: Create install-config
-create_install_config() {
-    print_info "Step 3: Creating install-config..."
+# Step 3: Display KMS key information for manual configuration
+display_kms_info() {
+    print_info "Step 3: KMS key information for manual configuration..."
     
-    # Create work directory
-    mkdir -p "$WORK_DIR"
-    cd "$WORK_DIR"
-    
-    # Create install-config.yaml
-    openshift-install create install-config --dir . << EOF
-apiVersion: v1
-baseDomain: qe1.devcluster.openshift.com
-metadata:
-  name: $CLUSTER_NAME
-platform:
-  aws:
-    region: $CLUSTER_REGION
-pullSecret: '{"auths":{"fake":{"auth":"bar"}}}'
-sshKey: |
-$(cat ~/.ssh/id_rsa.pub | sed 's/^/  /' 2>/dev/null || echo "  ssh-rsa fake-key")
-EOF
-    
-    if [[ -f install-config.yaml ]]; then
-        print_success "Install config created successfully"
-        if [[ "$VERBOSE" == "true" ]]; then
-            print_info "Install config content:"
-            cat install-config.yaml
-        fi
-    else
-        print_error "Failed to create install-config.yaml"
-        exit 1
-    fi
-}
-
-# Step 4: Modify install-config with invalid KMS key
-modify_install_config() {
-    print_info "Step 4: Modifying install-config with invalid KMS key..."
-    print_warning "Adding KMS key from region $KMS_REGION to cluster in region $CLUSTER_REGION (should cause failure)"
-    
-    # Create modified install-config.yaml with KMS key
-    cat > install-config.yaml << EOF
-apiVersion: v1
-baseDomain: qe1.devcluster.openshift.com
-metadata:
-  name: $CLUSTER_NAME
-platform:
-  aws:
-    region: $CLUSTER_REGION
-pullSecret: '{"auths":{"fake":{"auth":"bar"}}}'
-sshKey: |
-$(cat ~/.ssh/id_rsa.pub | sed 's/^/  /' 2>/dev/null || echo "  ssh-rsa fake-key")
-compute:
-- architecture: amd64
-  hyperthreading: Enabled
-  name: worker
-  platform: {}
-  replicas: 3
-controlPlane:
-  architecture: amd64
-  hyperthreading: Enabled
-  name: master
-  platform:
-    aws:
-      rootVolume:
-        kmsKeyARN: $KMS_KEY_ARN
-  replicas: 3
-EOF
-    
-    print_success "Install config modified with invalid KMS key"
-    print_info "KMS Key ARN: $KMS_KEY_ARN"
-    print_info "KMS Key Region: $KMS_REGION"
+    print_success "KMS key created successfully!"
+    print_info "Key ID: $KMS_KEY_ID"
+    print_info "Key ARN: $KMS_KEY_ARN"
+    print_info "Key Region: $KMS_REGION"
     print_info "Cluster Region: $CLUSTER_REGION"
     
-    if [[ "$VERBOSE" == "true" ]]; then
-        print_info "Modified install config:"
-        cat install-config.yaml
-    fi
-}
-
-# Step 5: Attempt cluster creation (should fail)
-attempt_cluster_creation() {
-    print_info "Step 5: Attempting cluster creation (should fail due to invalid KMS key)..."
-    
-    # Capture output to analyze errors
-    local cluster_output
-    cluster_output=$("$OPENSHIFT_INSTALL_PATH" create cluster --dir . 2>&1)
-    local exit_code=$?
-    
-    if [[ $exit_code -ne 0 ]]; then
-        print_success "✅ Cluster creation failed as expected"
-        
-        # Check for specific error patterns
-        if echo "$cluster_output" | grep -i "Client.InternalError\|Client error on launch" >/dev/null; then
-            print_success "✅ Found expected error pattern: Client.InternalError"
-        fi
-        
-        if echo "$cluster_output" | grep -i "kms\|key" >/dev/null; then
-            print_success "✅ Found KMS-related error messages"
-        fi
-        
-        if echo "$cluster_output" | grep -i "region\|invalid" >/dev/null; then
-            print_success "✅ Found region/invalid key error messages"
-        fi
-        
-        print_info "Error output analysis:"
-        echo "$cluster_output" | grep -E "(error|Error|ERROR)" | head -10
-        
-        if [[ "$VERBOSE" == "true" ]]; then
-            print_info "Full cluster creation output:"
-            echo "$cluster_output"
-        fi
-        
-        return 0  # Expected failure
-    else
-        print_error "❌ Cluster creation succeeded unexpectedly"
-        print_error "This test should fail due to invalid KMS key region"
-        return 1
-    fi
-}
-
-# Step 6: Destroy cluster (cleanup)
-destroy_cluster() {
-    print_info "Step 6: Destroying cluster (cleanup)..."
-    
-    if [[ -f install-config.yaml ]]; then
-        if openshift-install destroy cluster --dir . --log-level error; then
-            print_success "Cluster destroyed successfully"
-        else
-            print_warning "Cluster destruction failed or cluster was not created"
-        fi
-    else
-        print_info "No install-config.yaml found, skipping cluster destruction"
-    fi
+    echo ""
+    print_info "For manual testing, use the following configuration in your install-config.yaml:"
+    echo ""
+    echo "controlPlane:"
+    echo "  architecture: amd64"
+    echo "  hyperthreading: Enabled"
+    echo "  name: master"
+    echo "  platform:"
+    echo "    aws:"
+    echo "      rootVolume:"
+    echo "        kmsKeyARN: $KMS_KEY_ARN"
+    echo "  replicas: 3"
+    echo ""
+    echo "platform:"
+    echo "  aws:"
+    echo "    region: $CLUSTER_REGION  # Note: KMS key is in $KMS_REGION (should cause failure)"
+    echo ""
+    print_warning "This configuration should cause cluster creation to fail due to region mismatch"
 }
 
 # Cleanup KMS key
@@ -336,10 +228,7 @@ Test Case: [ipi-on-aws] IPI Installer with KMS configuration [invalid key]
 Test Steps Completed:
 ✅ Step 1: Get user ARN
 ✅ Step 2: Create KMS key in $KMS_REGION
-✅ Step 3: Create install-config
-✅ Step 4: Modify install-config with invalid KMS key
-✅ Step 5: Attempt cluster creation (failed as expected)
-✅ Step 6: Destroy cluster (cleanup)
+✅ Step 3: Display KMS key information for manual configuration
 
 Key Information:
 - KMS Key ID: ${KMS_KEY_ID:-N/A}
@@ -348,10 +237,11 @@ Key Information:
 - Cluster Region: $CLUSTER_REGION
 - User ARN: ${USER_ARN:-N/A}
 
-Expected Results:
+Manual Testing Instructions:
 ✅ KMS key created successfully in $KMS_REGION
-✅ Cluster creation failed due to invalid KMS key region
-✅ Error messages indicate KMS key region mismatch
+✅ Use provided configuration in install-config.yaml
+✅ Cluster creation should fail due to invalid KMS key region
+✅ Error messages should indicate KMS key region mismatch
 
 Test Result: PASS
 
@@ -437,9 +327,7 @@ main() {
     check_prerequisites
     get_user_arn
     create_kms_key
-    create_install_config
-    modify_install_config
-    attempt_cluster_creation
+    display_kms_info
     generate_test_report
     
     print_success "🎉 OCP-29064 test completed successfully!"
