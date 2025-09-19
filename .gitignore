@@ -49,6 +49,14 @@ release.txt
 sha256sum.txt
 
 install-config.yaml*
+install-config*.yaml*
 
 # OCP-25698 generated install config files
 OCP-25698/install-config-cluster-*.yaml
+
+# OCP-29781 generated files
+OCP-29781/install-config-cluster*.yaml
+OCP-29781/stack-output.json
+OCP-29781/vpc-info.env
+OCP-29781/*-install/
+OCP-29781/cluster*-install/
