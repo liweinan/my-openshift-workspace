@@ -56,3 +56,22 @@ echo ""
 
 # Execute the command
 eval "${CMD}"
+
+# Check if the command was successful
+if [ $? -eq 0 ]; then
+    echo ""
+    echo "VPC stack created successfully!"
+    echo ""
+    echo "Getting VPC outputs..."
+    
+    # Get VPC outputs
+    aws cloudformation describe-stacks \
+        --region ${REGION} \
+        --stack-name ${STACK_NAME} \
+        --query 'Stacks[0].Outputs' \
+        --output table
+    
+    echo ""
+    echo "To get subnet IDs for install-config.yaml, run:"
+    echo "  ../tools/get-vpc-outputs.sh ${STACK_NAME} ${REGION}"
+fi
