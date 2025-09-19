@@ -34,6 +34,12 @@ openshift-install create cluster --dir .
 ### Step 3: 中断安装过程
 **测试用例步骤**: `enter 'ctrl-c' to break openshift-install when the condition is satisfied`
 
+#### 重要说明：Bootstrap 节点生命周期
+- **Bootstrap 节点创建**: 在安装开始时创建
+- **Bootstrap 节点工作**: 启动控制平面节点
+- **Bootstrap 节点销毁**: 在 `wait-for bootstrap-complete` 完成后被销毁
+- **日志收集**: `gather bootstrap` 命令会在 bootstrap 节点不存在时从控制平面节点收集相关日志
+
 #### 方法 A: 监控日志消息中断
 **关键时机**: 当看到以下消息时，立即按 `Ctrl+C` 中断：
 ```
@@ -42,7 +48,7 @@ added bootstrap-success: Required control plane pods have been created
 
 #### 方法 B: 分阶段中断
 ```bash
-# 等待 bootstrap 完成
+# 等待 bootstrap 完成（此时 bootstrap 节点已被销毁）
 openshift-install wait-for bootstrap-complete --dir .
 
 # 然后在 install-complete 阶段中断
@@ -50,12 +56,17 @@ openshift-install wait-for install-complete --dir .
 # 按 Ctrl+C 中断
 ```
 
-**期待结果**: 安装过程被成功中断，bootstrap 节点已创建但集群安装未完成
+**期待结果**: 安装过程被成功中断，bootstrap 节点已完成工作但集群安装未完成
 
 ### Step 4: 收集引导日志
 **测试用例步骤**: `use the sub-command 'gather' to collect information`
 
-#### 方法 1: 使用目录参数
+#### 重要说明：日志收集机制
+- **Bootstrap 节点存在时**: 直接从 bootstrap 节点收集日志
+- **Bootstrap 节点已销毁时**: 从控制平面节点收集相关的 bootstrap 日志
+- **智能收集**: `gather bootstrap` 命令会自动处理这两种情况
+
+#### 方法 1: 使用目录参数（推荐）
 ```bash
 openshift-install gather bootstrap --dir .
 ```
@@ -73,6 +84,8 @@ INFO Use the following commands to gather logs from the cluster
 INFO ssh -A core@<BOOTSTRAP_IP> '/usr/local/bin/installer-gather.sh <MASTER1_IP> <MASTER2_IP> <MASTER3_IP>'
 INFO scp core@<BOOTSTRAP_IP>:~/log-bundle.tar.gz .
 ```
+
+**注意**: 如果 bootstrap 节点已被销毁，命令会从控制平面节点收集相关日志。
 
 ### Step 5: 执行日志收集命令
 **测试用例步骤**: `Following the guide to gather debugging data`
