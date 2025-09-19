@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+#
 # OCP-29064 Invalid KMS Key Test Script
 # Tests OpenShift installation with invalid KMS key configuration
 
@@ -98,7 +98,11 @@ check_prerequisites() {
 
 # Step 1: Get user ARN
 get_user_arn() {
-    print_info "Step 1: Getting user ARN..."
+    print_info "Step 1.1: Get user ARN"
+    
+    echo ""
+    print_info "Command:"
+    echo "# aws sts get-caller-identity --output json | jq -r .Arn"
     
     USER_ARN=$(aws sts get-caller-identity --output json | jq -r .Arn)
     
@@ -107,9 +111,12 @@ get_user_arn() {
         exit 1
     fi
     
-    print_success "User ARN: $USER_ARN"
+    echo ""
+    print_success "Result:"
+    echo "$USER_ARN"
     
     if [[ "$VERBOSE" == "true" ]]; then
+        echo ""
         print_info "Full caller identity:"
         aws sts get-caller-identity --output json | jq .
     fi
@@ -117,7 +124,7 @@ get_user_arn() {
 
 # Step 2: Create KMS key
 create_kms_key() {
-    print_info "Step 2: Creating KMS key in region $KMS_REGION..."
+    print_info "Step 1.2: Create KMS key"
     
     # Create KMS key policy
     local key_policy
@@ -140,6 +147,17 @@ create_kms_key() {
 EOF
 )
     
+    echo ""
+    print_info "Command:"
+    echo "aws kms create-key --region $KMS_REGION --description \"$KMS_DESCRIPTION\" --output json --policy [following policy]"
+    
+    echo ""
+    print_info "Key Policy:"
+    echo "$key_policy" | jq .
+    
+    echo ""
+    print_info "Executing command..."
+    
     # Create KMS key
     local kms_output
     kms_output=$(aws kms create-key \
@@ -152,11 +170,21 @@ EOF
         KMS_KEY_ID=$(echo "$kms_output" | jq -r '.KeyMetadata.KeyId')
         KMS_KEY_ARN=$(echo "$kms_output" | jq -r '.KeyMetadata.Arn')
         
-        print_success "KMS key created successfully"
-        print_success "Key ID: $KMS_KEY_ID"
-        print_success "Key ARN: $KMS_KEY_ARN"
+        echo ""
+        print_success "Result:"
+        echo "$kms_output" | jq .
+        
+        echo ""
+        print_success "Record its id and arn:"
+        echo "KeyId: $KMS_KEY_ID"
+        echo "arn: $KMS_KEY_ARN"
+        
+        echo ""
+        print_success "Record its arn:"
+        echo "$KMS_KEY_ARN"
         
         if [[ "$VERBOSE" == "true" ]]; then
+            echo ""
             print_info "KMS key details:"
             echo "$kms_output" | jq .
         fi
