@@ -100,8 +100,6 @@ check_prerequisites() {
 get_user_arn() {
     print_info "Step 1.1: Get user ARN"
     
-    echo ""
-    print_info "Command:"
     echo "# aws sts get-caller-identity --output json | jq -r .Arn"
     
     USER_ARN=$(aws sts get-caller-identity --output json | jq -r .Arn)
@@ -111,8 +109,6 @@ get_user_arn() {
         exit 1
     fi
     
-    echo ""
-    print_success "Result:"
     echo "$USER_ARN"
     
     if [[ "$VERBOSE" == "true" ]]; then
@@ -147,16 +143,8 @@ create_kms_key() {
 EOF
 )
     
-    echo ""
-    print_info "Command:"
     echo "aws kms create-key --region $KMS_REGION --description \"$KMS_DESCRIPTION\" --output json --policy [following policy]"
-    
-    echo ""
-    print_info "Key Policy:"
     echo "$key_policy" | jq .
-    
-    echo ""
-    print_info "Executing command..."
     
     # Create KMS key
     local kms_output
@@ -170,17 +158,9 @@ EOF
         KMS_KEY_ID=$(echo "$kms_output" | jq -r '.KeyMetadata.KeyId')
         KMS_KEY_ARN=$(echo "$kms_output" | jq -r '.KeyMetadata.Arn')
         
-        echo ""
-        print_success "Result:"
         echo "$kms_output" | jq .
-        
-        echo ""
-        print_success "Record its id and arn:"
         echo "KeyId: $KMS_KEY_ID"
         echo "arn: $KMS_KEY_ARN"
-        
-        echo ""
-        print_success "Record its arn:"
         echo "$KMS_KEY_ARN"
         
         if [[ "$VERBOSE" == "true" ]]; then
