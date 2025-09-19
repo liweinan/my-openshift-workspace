@@ -3,7 +3,7 @@
 set -o nounset
 set -o errexit
 set -o pipefail
-set -x
+#set -x
 
 # --- Configuration ---
 if [ "$#" -lt 3 ]; then

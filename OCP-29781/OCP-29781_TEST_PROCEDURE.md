@@ -266,3 +266,4 @@ aws cloudformation delete-stack --stack-name ocp29781-vpc
 - ✅ 网络隔离验证通过
 - ✅ 安全组配置正确
 - ✅ Bastion host在public subnet中创建
+
