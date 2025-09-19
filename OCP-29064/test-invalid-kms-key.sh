@@ -143,8 +143,7 @@ create_kms_key() {
 EOF
 )
     
-    echo "aws kms create-key --region $KMS_REGION --description \"$KMS_DESCRIPTION\" --output json --policy [following policy]"
-    echo "$key_policy" | jq .
+    echo "aws kms create-key --region $KMS_REGION --description \"$KMS_DESCRIPTION\" --output json --policy '$key_policy'"
     
     # Create KMS key
     local kms_output
