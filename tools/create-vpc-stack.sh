@@ -74,4 +74,11 @@ if [ $? -eq 0 ]; then
     echo ""
     echo "To get subnet IDs for install-config.yaml, run:"
     echo "  ../tools/get-vpc-outputs.sh ${STACK_NAME} ${REGION}"
+    echo ""
+    echo "To delete this VPC stack, run:"
+    echo "  aws cloudformation delete-stack --region ${REGION} --stack-name ${STACK_NAME}"
+    echo "  aws cloudformation wait stack-delete-complete --region ${REGION} --stack-name ${STACK_NAME}"
+    echo ""
+    echo "Or use the cleanup script:"
+    echo "  ../tools/delete-stacks-by-name.sh ${STACK_NAME} ${REGION}"
 fi
