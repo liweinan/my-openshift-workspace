@@ -145,19 +145,96 @@ openshift-install destroy cluster --dir demo1
 2. **配置修改正确**: install-config.yaml 正确包含 KMS 密钥 ARN
 3. **区域不匹配**: KMS 密钥区域与集群区域不匹配
 4. **集群创建失败**: 由于无效 KMS 配置导致集群创建失败
-5. **错误消息准确**: 错误消息包含 "Client.InternalError" 或类似内容
+5. **错误消息准确**: 错误消息包含 KMS 相关的 Client 错误
 6. **清理成功**: 能够成功销毁集群和清理资源
 
-### 验证命令
-```bash
-# 检查 KMS 密钥
-aws kms describe-key --region us-east-2 --key-id <key-id>
+### 详细验证方法
 
-# 验证 install-config.yaml
+#### 1. 检查 AWS 实例状态（推荐方法）
+这是最直接和准确的验证方法：
+
+```bash
+# 检查所有相关实例的状态和错误原因
+aws ec2 describe-instances \
+  --region <cluster-region> \
+  --filters "Name=tag:Name,Values=<cluster-name>-*" \
+  --query 'Reservations[*].Instances[*].[InstanceId,State.Name,StateReason.Message]' \
+  --output table
+```
+
+**期待结果**: 所有实例状态为 `terminated`，错误原因为 KMS 相关错误：
+```
+|  i-xxxxxxxxxxxxxxxxx|  terminated |  Client.InvalidKMSKey.InvalidState: The KMS key provided is in an incorrect state   |
+|  i-yyyyyyyyyyyyyyyyy|  terminated |  Client.InvalidKMSKey.InvalidState: The KMS key provided is in an incorrect state   |
+```
+
+#### 2. 检查 KMS 密钥配置
+```bash
+# 检查 KMS 密钥状态和区域
+aws kms describe-key --region <kms-region> --key-id <key-id>
+```
+
+**期待结果**: 
+- `KeyState: "Enabled"`
+- `MultiRegion: false` (单区域密钥)
+- 密钥在指定区域创建
+
+#### 3. 检查 install-config.yaml 配置
+```bash
+# 验证 KMS 配置
 ./verify-kms-config.sh
 
-# 检查集群状态
-aws ec2 describe-instances --filters "Name=tag:Name,Values=<cluster-name>-*"
+# 或手动检查
+yq eval '.controlPlane.platform.aws.rootVolume.kmsKeyARN' install-config.yaml
+yq eval '.platform.aws.region' install-config.yaml
+```
+
+**期待结果**: 
+- KMS 密钥 ARN 指向不同区域的密钥
+- 集群区域与 KMS 密钥区域不匹配
+
+#### 4. 检查安装日志
+```bash
+# 搜索错误信息
+grep -i "error\|failed" .openshift_install.log | tail -20
+
+# 搜索 KMS 相关错误
+grep -i "kms\|key" .openshift_install.log | tail -10
+```
+
+**期待结果**: 日志中包含 KMS 相关的错误信息
+
+#### 5. 检查 Cluster API 资源状态
+```bash
+# 检查 AWSMachine 资源状态
+cat .clusterapi_output/AWSMachine-*-master-*.yaml | grep -A 10 "status:"
+
+# 或使用 kubectl（如果可用）
+kubectl get awsmachines -o yaml | grep -A 5 "failurereason\|failuremessage"
+```
+
+**期待结果**: 
+- `instancestate: terminated`
+- `failurereason: UpdateError`
+- `failuremessage: EC2 instance state "terminated" is unexpected`
+
+### 验证命令总结
+```bash
+# 1. 检查实例状态（最重要）
+aws ec2 describe-instances \
+  --region us-east-1 \
+  --filters "Name=tag:Name,Values=weli-testy-*" \
+  --query 'Reservations[*].Instances[*].[InstanceId,State.Name,StateReason.Message]' \
+  --output table
+
+# 2. 检查 KMS 密钥
+aws kms describe-key --region us-east-2 --key-id <key-id>
+
+# 3. 验证配置文件
+./verify-kms-config.sh
+
+# 4. 检查日志
+grep -i "error\|kms\|key" .openshift_install.log | tail -10
 ```
 
 ## 故障排除
@@ -184,6 +261,13 @@ yq eval '.controlPlane.platform.aws.rootVolume.kmsKeyARN' install-config.yaml
 
 # 验证 KMS 密钥区域
 aws kms describe-key --region us-east-2 --key-id <key-id>
+
+# 检查实例状态（如果集群创建成功，实例应该正常运行）
+aws ec2 describe-instances \
+  --region <cluster-region> \
+  --filters "Name=tag:Name,Values=<cluster-name>-*" \
+  --query 'Reservations[*].Instances[*].[InstanceId,State.Name]' \
+  --output table
 ```
 
 #### 3. 错误消息不明确
@@ -193,6 +277,16 @@ openshift-install create cluster --dir demo1 --log-level debug
 
 # 检查 Terraform 日志
 tail -f .openshift_install.log
+
+# 直接检查实例状态和错误原因（最准确的方法）
+aws ec2 describe-instances \
+  --region <cluster-region> \
+  --filters "Name=tag:Name,Values=<cluster-name>-*" \
+  --query 'Reservations[*].Instances[*].[InstanceId,State.Name,StateReason.Message]' \
+  --output table
+
+# 检查 Cluster API 资源状态
+cat .clusterapi_output/AWSMachine-*-master-*.yaml | grep -A 5 "failurereason\|failuremessage"
 ```
 
 #### 4. 清理失败
@@ -224,12 +318,53 @@ rm -rf demo1
 - **OCP-29063**: IPI 安装程序与 KMS 配置 [worker]
 - **OCP-29074**: AWS 手动模式配置 CCO
 
+## 测试结果判断
+
+### 如何正确判断测试是否成功
+
+#### ✅ 测试成功的标志
+1. **实例状态检查**（最重要）:
+   ```bash
+   aws ec2 describe-instances \
+     --region <cluster-region> \
+     --filters "Name=tag:Name,Values=<cluster-name>-*" \
+     --query 'Reservations[*].Instances[*].[InstanceId,State.Name,StateReason.Message]' \
+     --output table
+   ```
+   **期待结果**: 所有实例状态为 `terminated`，错误原因包含 KMS 相关错误
+
+2. **错误类型验证**:
+   - `Client.InvalidKMSKey.InvalidState`
+   - `Client.InternalError: Client error on launch`
+   - 或其他 KMS 相关的 Client 错误
+
+3. **集群创建失败**: 安装过程最终失败，无法完成集群创建
+
+#### ❌ 测试失败的标志
+1. **集群创建成功**: 实例正常运行，集群完全部署
+2. **错误原因不相关**: 实例失败原因不是 KMS 相关
+3. **配置错误**: KMS 密钥和集群在同一区域
+
+#### 常见错误信息对比
+| 错误类型 | 测试结果 | 说明 |
+|---------|---------|------|
+| `Client.InvalidKMSKey.InvalidState` | ✅ 成功 | KMS 密钥区域不匹配 |
+| `Client.InternalError: Client error on launch` | ✅ 成功 | KMS 相关启动错误 |
+| `no such host` / `context deadline exceeded` | ❓ 需进一步检查 | 可能是网络问题，需检查实例状态 |
+| 集群创建成功 | ❌ 失败 | 配置可能有问题 |
+
+### 验证优先级
+1. **第一优先级**: 检查 AWS 实例状态和错误原因
+2. **第二优先级**: 验证 KMS 密钥配置和区域
+3. **第三优先级**: 检查安装日志中的错误信息
+
 ## 注意事项
 1. **区域不匹配**: 确保 KMS 密钥区域与集群区域不同
 2. **权限配置**: 确保 KMS 密钥策略包含正确的用户权限
 3. **错误预期**: 这个测试期望集群创建失败
 4. **清理重要**: 及时清理 KMS 密钥以避免费用
 5. **日志分析**: 仔细分析错误日志以验证错误类型
+6. **实例状态检查**: 最准确的验证方法是直接检查 AWS 实例状态
 
 ## 实际应用价值
 这个测试验证的功能对于：
