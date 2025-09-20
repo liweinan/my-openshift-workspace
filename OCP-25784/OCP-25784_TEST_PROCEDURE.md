@@ -59,10 +59,18 @@ tar -xzf openshift-client-linux-4.20.0-rc.2-x86_64.tar.gz
 chmod +x oc kubectl
 ```
 
-#### 2.2 传输工具到Bastion主机
+#### 2.2 传输工具和凭证到Bastion主机
 ```bash
 # 传输oc工具到bastion主机
 scp oc core@<bastion-public-ip>:~/
+
+# 传输OpenShift pull-secret
+scp ~/.openshift/pull-secret core@<bastion-public-ip>:~/
+
+# 传输AWS凭证
+scp -r ~/.aws core@<bastion-public-ip>:~/
+
+# 传输认证文件（如需要）
 scp <auth-file> core@<bastion-public-ip>:~/
 ```
 
@@ -83,6 +91,32 @@ chmod +x openshift-install
 ```bash
 # 在bastion主机上运行
 ./openshift-install create install-config
+
+# 或者手动创建install-config.yaml文件
+cat > install-config.yaml << EOF
+apiVersion: v1
+baseDomain: qe.devcluster.openshift.com
+metadata:
+  name: <cluster-name>
+networking:
+  clusterNetwork:
+  - cidr: 10.128.0.0/14
+    hostPrefix: 23
+  machineNetwork:
+  - cidr: 10.0.0.0/16
+  networkType: OVNKubernetes
+  serviceNetwork:
+  - 172.30.0.0/16
+platform:
+  aws:
+    region: us-east-1
+    vpc:
+      subnets:
+        - id: <private-subnet-1>
+        - id: <private-subnet-2>
+publish: Internal
+pullSecret: '$(cat ~/pull-secret)'
+EOF
 ```
 
 #### 3.2 配置私有集群
@@ -110,6 +144,7 @@ platform:
         - id: <private-subnet-1>
         - id: <private-subnet-2>
 publish: Internal  # 关键：设置为Internal
+pullSecret: '{"auths":{"registry.redhat.io":{"auth":"..."}}}'  # 从本地pull-secret文件复制
 ```
 
 **预期结果**: `install-config.yaml`创建成功，`publish`字段设置为`Internal`
@@ -207,12 +242,17 @@ aws cloudformation delete-stack --stack-name <vpc-stack-name>
 ## 故障排除
 
 ### 常见问题
-1. **子网标记问题**: 确保子网正确标记了Kubernetes标签
-2. **网络连接问题**: 检查安全组和路由表配置
-3. **DNS解析问题**: 验证Route53私有区域配置
+1. **凭证问题**: 确保pull-secret和AWS凭证已正确传输到bastion主机
+2. **子网标记问题**: 确保子网正确标记了Kubernetes标签
+3. **网络连接问题**: 检查安全组和路由表配置
+4. **DNS解析问题**: 验证Route53私有区域配置
 
 ### 调试命令
 ```bash
+# 检查凭证文件
+ls -la ~/.aws/
+ls -la ~/pull-secret
+
 # 检查VPC配置
 aws ec2 describe-vpcs --vpc-ids <vpc-id>
 
@@ -221,6 +261,9 @@ aws ec2 describe-subnets --subnet-ids <subnet-id>
 
 # 检查安全组
 aws ec2 describe-security-groups --filters "Name=vpc-id,Values=<vpc-id>"
+
+# 验证AWS凭证
+aws sts get-caller-identity
 ```
 
 ## 测试通过标准
