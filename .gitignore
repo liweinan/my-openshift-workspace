@@ -14,8 +14,12 @@ work*/
 .openshift_install_state.json
 metadata.json
 
+
 # Binary files
 openshift-install
+oc
+kubectl
+
 
 # Sensitive configuration files
 pull-secret.json
@@ -45,6 +49,9 @@ ehthumbs.db
 # Ignored tools
 *.tar.gz
 *.tgz
+*.gz
+
+
 release.txt
 sha256sum.txt
 

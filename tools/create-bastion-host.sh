@@ -7,23 +7,23 @@ set -o pipefail
 
 # --- Configuration ---
 if [ "$#" -lt 3 ]; then
-  echo "Usage: $0 <vpc-id> <public-subnet-id> <cluster-name> [path-to-ignition-file]"
-  echo "Example (default SSH key): $0 vpc-0123... subnet-fedcba... my-cluster"
-  echo "Example (custom ignition): $0 vpc-0123... subnet-fedcba... my-cluster ./my-cluster.ign"
+  echo "Usage: $0 <vpc-id> <public-subnet-id> <bastion-name> [path-to-ignition-file]"
+  echo "Example (default SSH key): $0 vpc-0123... subnet-fedcba... my-bastion"
+  echo "Example (custom ignition): $0 vpc-0123... subnet-fedcba... my-bastion ./my-cluster.ign"
   exit 1
 fi
 
 VPC_ID=$1
 PUBLIC_SUBNET_ID=$2
-CLUSTER_NAME=$3
+BASTION_NAME=$3
 BASTION_IGNITION_FILE=${4:-""}
 REGION=${AWS_REGION:-"us-east-1"}
 DEFAULT_SSH_KEY_PATH="/Users/weli/.ssh/id_rsa.pub"
 
 # --- Script Logic ---
-BASTION_STACK_NAME="${CLUSTER_NAME}-bastion"
-S3_BUCKET_NAME="${CLUSTER_NAME}-bastion-ign-$(date +%s)"
-BASTION_CF_TPL_FILE="./${CLUSTER_NAME}-bastion-cf-tpl.yaml"
+BASTION_STACK_NAME="${BASTION_NAME}-bastion"
+S3_BUCKET_NAME="${BASTION_NAME}-bastion-ign-$(date +%s)"
+BASTION_CF_TPL_FILE="./${BASTION_NAME}-bastion-cf-tpl.yaml"
 TEMP_IGNITION_FILE=$(mktemp)
 # Clean up temporary files on exit
 trap 'rm -f "${TEMP_IGNITION_FILE}" "${BASTION_CF_TPL_FILE}"' EXIT
@@ -77,7 +77,7 @@ Parameters:
   PublicSubnet: {Type: AWS::EC2::Subnet::Id}
   BastionHostInstanceType: {Type: String}
   BastionIgnitionLocation: {Type: String}
-  ClusterName: {Type: String}
+  BastionName: {Type: String}
 Resources:
   BastionIamRole:
     Type: AWS::IAM::Role
@@ -87,11 +87,11 @@ Resources:
         Statement: [{"Effect": "Allow", "Principal": {"Service": ["ec2.amazonaws.com"]}, "Action": ["sts:AssumeRole"]}]
       Path: "/"
       Policies:
-      - PolicyName: !Join ["-", [!Ref ClusterName, "bastion-policy"]]
+      - PolicyName: !Join ["-", [!Ref BastionName, "bastion-policy"]]
         PolicyDocument:
           Version: "2012-10-17"
           Statement:
-          - {Effect: "Allow", Action: "s3:GetObject", Resource: !Join ["", ["arn:aws:s3:::", !Ref ClusterName, "-bastion-ign-*/*"]]}
+          - {Effect: "Allow", Action: "s3:GetObject", Resource: !Join ["", ["arn:aws:s3:::", !Ref BastionName, "-bastion-ign-*/*"]]}
   BastionInstanceProfile:
     Type: "AWS::IAM::InstanceProfile"
     Properties: {Path: "/", Roles: [!Ref "BastionIamRole"]}
@@ -111,7 +111,7 @@ Resources:
       NetworkInterfaces:
       - {AssociatePublicIpAddress: "True", DeviceIndex: "0", GroupSet: [!GetAtt BastionSecurityGroup.GroupId], SubnetId: !Ref "PublicSubnet"}
       Tags:
-      - {Key: Name, Value: !Join ["-", [!Ref ClusterName, "bastion"]]}
+      - {Key: Name, Value: !Join ["-", [!Ref BastionName, "bastion"]]}
       UserData:
         Fn::Base64:
           !Sub
@@ -132,7 +132,7 @@ aws --region ${REGION} cloudformation create-stack --stack-name ${BASTION_STACK_
         ParameterKey=BastionHostInstanceType,ParameterValue="${BASTION_INSTANCE_TYPE}" \
         ParameterKey=PublicSubnet,ParameterValue="${PUBLIC_SUBNET_ID}" \
         ParameterKey=AmiId,ParameterValue="${AMI_ID}" \
-        ParameterKey=ClusterName,ParameterValue="${CLUSTER_NAME}" \
+        ParameterKey=BastionName,ParameterValue="${BASTION_NAME}" \
         ParameterKey=BastionIgnitionLocation,ParameterValue="${IGNITION_S3_LOCATION}"
 
 echo "Waiting for stack ${BASTION_STACK_NAME} to be created..."
