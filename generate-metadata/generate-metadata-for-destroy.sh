@@ -1,21 +1,21 @@
-帮我床架#!/bin/bash
+#!/bin/bash
 
 # generate-metadata-for-destroy.sh
-# 用于在没有原始 metadata.json 文件的情况下，动态生成 metadata.json 来销毁 OpenShift 集群
-# 基于 OCP-22168 测试用例的要求
+# Used to dynamically generate metadata.json for destroying OpenShift clusters when the original metadata.json file is not available
+# Based on OCP-22168 test case requirements
 
 set -o nounset
 set -o errexit
 set -o pipefail
 
-# 颜色输出
+# Color output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# 日志函数
+# Logging functions
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
 }
@@ -32,32 +32,32 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# 显示帮助信息
+# Display help information
 show_help() {
     cat << EOF
 Usage: $0 [OPTIONS]
 
-动态生成 metadata.json 文件用于销毁 OpenShift 集群
+Dynamically generate metadata.json file for destroying OpenShift clusters
 
 OPTIONS:
-    -c, --cluster-name CLUSTER_NAME    集群名称 (必需)
-    -r, --region REGION                AWS 区域 (必需)
-    -i, --infra-id INFRA_ID           基础设施 ID (必需)
-    -u, --cluster-id CLUSTER_ID       集群 UUID (必需)
-    -o, --output-dir OUTPUT_DIR       输出目录 (默认: ./cleanup)
-    -h, --help                        显示此帮助信息
+    -c, --cluster-name CLUSTER_NAME    Cluster name (required)
+    -r, --region REGION                AWS region (required)
+    -i, --infra-id INFRA_ID           Infrastructure ID (required)
+    -u, --cluster-id CLUSTER_ID       Cluster UUID (required)
+    -o, --output-dir OUTPUT_DIR       Output directory (default: ./cleanup)
+    -h, --help                        Display this help information
 
 EXAMPLES:
-    # 基本用法
+    # Basic usage
     $0 -c "my-cluster" -r "us-east-1" -i "my-cluster-abc123" -u "12345678-1234-1234-1234-123456789012"
     
-    # 指定输出目录
+    # Specify output directory
     $0 -c "my-cluster" -r "us-east-1" -i "my-cluster-abc123" -u "12345678-1234-1234-1234-123456789012" -o "/tmp/cleanup"
 
 NOTES:
-    - 此脚本基于 OCP-22168 测试用例的要求
-    - 生成的 metadata.json 文件可以用于 openshift-install destroy cluster 命令
-    - 支持 OpenShift 4.16+ 的 metadata.json 格式
+    - This script is based on OCP-22168 test case requirements
+    - The generated metadata.json file can be used with the openshift-install destroy cluster command
+    - Supports OpenShift 4.16+ metadata.json format
 EOF
 }
 
@@ -96,14 +96,14 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         *)
-            log_error "未知参数: $1"
+            log_error "Unknown parameter: $1"
             show_help
             exit 1
             ;;
     esac
 done
 
-# 验证必需参数
+# Validate required parameters
 validate_parameters() {
     local missing_params=()
     
@@ -124,50 +124,50 @@ validate_parameters() {
     fi
     
     if [[ ${#missing_params[@]} -gt 0 ]]; then
-        log_error "缺少必需参数: ${missing_params[*]}"
+        log_error "Missing required parameters: ${missing_params[*]}"
         echo
         show_help
         exit 1
     fi
 }
 
-# 验证 AWS CLI 和 jq
+# Validate AWS CLI and jq
 check_dependencies() {
     log_info "检查依赖..."
     
     if ! command -v aws &> /dev/null; then
-        log_error "AWS CLI 未安装或不在 PATH 中"
+        log_error "AWS CLI is not installed or not in PATH"
         exit 1
     fi
     
     if ! command -v jq &> /dev/null; then
-        log_error "jq 未安装或不在 PATH 中"
+        log_error "jq is not installed or not in PATH"
         exit 1
     fi
     
     log_success "依赖检查通过"
 }
 
-# 验证 AWS 凭证和区域
+# Validate AWS credentials and region
 validate_aws() {
     log_info "验证 AWS 配置..."
     
     # 检查 AWS 凭证
     if ! aws sts get-caller-identity &> /dev/null; then
-        log_error "AWS 凭证无效或未配置"
+        log_error "AWS credentials are invalid or not configured"
         exit 1
     fi
     
     # 检查区域是否有效
     if ! aws ec2 describe-regions --region-names "$REGION" &> /dev/null; then
-        log_error "AWS 区域 '$REGION' 无效"
+        log_error "AWS region '$REGION' is invalid"
         exit 1
     fi
     
     log_success "AWS 配置验证通过"
 }
 
-# 验证集群资源是否存在
+# Validate if cluster resources exist
 validate_cluster_resources() {
     log_info "验证集群资源..."
     
@@ -176,28 +176,28 @@ validate_cluster_resources() {
     local vpcs=$(aws --region "$REGION" ec2 describe-vpcs --filters "Name=tag:kubernetes.io/cluster/$INFRA_ID,Values=owned" --query 'Vpcs[].VpcId' --output text)
     
     if [[ -n "$vpcs" ]]; then
-        log_success "找到 VPC: $vpcs"
+        log_success "Found VPC: $vpcs"
         vpc_found=true
     else
-        log_warning "未找到标记为 'kubernetes.io/cluster/$INFRA_ID: owned' 的 VPC"
+        log_warning "No VPC found tagged with 'kubernetes.io/cluster/$INFRA_ID: owned'"
     fi
     
     # 检查 openshiftClusterID 标签
     local cluster_resources=$(aws --region "$REGION" resourcegroupstaggingapi get-tag-values --key openshiftClusterID --query "TagValues[?contains(@, '$CLUSTER_ID')]" --output text 2>/dev/null || echo "")
     
     if [[ -n "$cluster_resources" ]]; then
-        log_success "找到标记为 'openshiftClusterID: $CLUSTER_ID' 的资源"
+        log_success "Found resources tagged with 'openshiftClusterID: $CLUSTER_ID'"
     else
-        log_warning "未找到标记为 'openshiftClusterID: $CLUSTER_ID' 的资源"
+        log_warning "No resources found tagged with 'openshiftClusterID: $CLUSTER_ID'"
     fi
     
     if [[ "$vpc_found" == false && -z "$cluster_resources" ]]; then
-        log_error "未找到任何与指定集群相关的资源，请检查参数是否正确"
+        log_error "No resources related to the specified cluster were found, please check if parameters are correct"
         exit 1
     fi
 }
 
-# 生成 metadata.json 文件
+# Generate metadata.json file
 generate_metadata() {
     log_info "生成 metadata.json 文件..."
     
@@ -229,27 +229,27 @@ generate_metadata() {
 }
 EOF
     
-    log_success "metadata.json 文件已生成: $metadata_file"
+    log_success "metadata.json file generated: $metadata_file"
     
     # 显示生成的内容
-    log_info "生成的 metadata.json 内容:"
+    log_info "Generated metadata.json content:"
     cat "$metadata_file" | jq .
 }
 
-# 验证生成的 metadata.json
+# Validate generated metadata.json
 validate_metadata() {
     log_info "验证生成的 metadata.json..."
     
     local metadata_file="$OUTPUT_DIR/metadata.json"
     
     if [[ ! -f "$metadata_file" ]]; then
-        log_error "metadata.json 文件不存在: $metadata_file"
+        log_error "metadata.json file does not exist: $metadata_file"
         exit 1
     fi
     
     # 验证 JSON 格式
     if ! jq empty "$metadata_file" 2>/dev/null; then
-        log_error "metadata.json 文件格式无效"
+        log_error "metadata.json file format is invalid"
         exit 1
     fi
     
@@ -258,7 +258,7 @@ validate_metadata() {
     
     for field in "${required_fields[@]}"; do
         if ! jq -e ".$field" "$metadata_file" > /dev/null 2>&1; then
-            log_error "metadata.json 缺少必需字段: $field"
+            log_error "metadata.json missing required field: $field"
             exit 1
         fi
     done
@@ -266,39 +266,39 @@ validate_metadata() {
     log_success "metadata.json 验证通过"
 }
 
-# 提供销毁命令示例
+# Provide destroy command examples
 show_destroy_example() {
     log_info "销毁命令示例:"
     echo
     echo "cd $OUTPUT_DIR"
     echo "openshift-install destroy cluster --dir . --log-level debug"
     echo
-    log_warning "注意: 请确保在正确的目录中运行销毁命令"
+    log_warning "Note: Please ensure to run the destroy command in the correct directory"
 }
 
-# 提供验证命令示例
+# Provide verification command examples
 show_verification_example() {
-    log_info "验证资源清理的命令示例:"
+    log_info "Command examples for verifying resource cleanup:"
     echo
-    echo "# 检查 openshiftClusterID 标签"
+    echo "# Check openshiftClusterID tags"
     echo "aws --region $REGION resourcegroupstaggingapi get-tag-values --key openshiftClusterID | grep '$CLUSTER_ID'"
     echo
-    echo "# 检查 kubernetes.io/cluster 标签"
+    echo "# Check kubernetes.io/cluster tags"
     echo "aws --region $REGION resourcegroupstaggingapi get-tag-keys | grep 'kubernetes.io/cluster/$INFRA_ID'"
     echo
-    echo "# 检查所有相关资源"
+    echo "# Check all related resources"
     echo "aws --region $REGION resourcegroupstaggingapi get-resources --tag-filters 'Key=openshiftClusterID,Values=$CLUSTER_ID'"
     echo "aws --region $REGION resourcegroupstaggingapi get-resources --tag-filters 'Key=kubernetes.io/cluster/$INFRA_ID,Values=owned'"
 }
 
 # 主函数
 main() {
-    log_info "开始生成 metadata.json 文件..."
-    log_info "集群名称: $CLUSTER_NAME"
-    log_info "AWS 区域: $REGION"
-    log_info "基础设施 ID: $INFRA_ID"
-    log_info "集群 ID: $CLUSTER_ID"
-    log_info "输出目录: $OUTPUT_DIR"
+    log_info "Starting to generate metadata.json file..."
+    log_info "Cluster name: $CLUSTER_NAME"
+    log_info "AWS region: $REGION"
+    log_info "Infrastructure ID: $INFRA_ID"
+    log_info "Cluster ID: $CLUSTER_ID"
+    log_info "Output directory: $OUTPUT_DIR"
     echo
     
     # 执行验证和生成步骤
@@ -310,7 +310,7 @@ main() {
     validate_metadata
     
     echo
-    log_success "metadata.json 文件生成完成！"
+    log_success "metadata.json file generation completed!"
     echo
     show_destroy_example
     echo

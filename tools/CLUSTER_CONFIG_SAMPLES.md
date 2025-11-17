@@ -1,125 +1,125 @@
-# OpenShift 集群配置样例
+# OpenShift Cluster Configuration Samples
 
-本文档提供了 OpenShift 私有集群和公共集群的配置样例。
+This document provides configuration examples for OpenShift private and public clusters.
 
-## 集群类型
+## Cluster Types
 
-### 1. 私有集群 (Private Cluster)
+### 1. Private Cluster
 
-**特点：**
-- 所有节点都在私有子网中
-- 不需要公共子网
-- 通过堡垒主机或 VPN 访问
-- 更安全，但需要额外的网络配置
+**Features:**
+- All nodes are in private subnets
+- No public subnets required
+- Access via bastion host or VPN
+- More secure but requires additional network configuration
 
-**配置要求：**
-- 只需要私有子网
+**Configuration Requirements:**
+- Only private subnets needed
 - `publish: Internal`
-- 子网需要包含可用区信息
+- Subnets must contain availability zone information
 
-**使用场景：**
-- 生产环境
-- 需要高安全性的环境
-- 有现有网络基础设施的环境
+**Use Cases:**
+- Production environments
+- Environments requiring high security
+- Environments with existing network infrastructure
 
-**配置文件：** `install-config.sample.private.yaml`
+**Configuration File:** `install-config.sample.private.yaml`
 
-**VPC 模板：** `vpc-template.yaml`
+**VPC Template:** `vpc-template.yaml`
 
-### 2. 公共集群 (Public Cluster)
+### 2. Public Cluster
 
-**特点：**
-- 控制平面节点在私有子网中
-- 工作节点可以在公共子网中
-- 可以直接从互联网访问
-- 部署和配置更简单
+**Features:**
+- Control plane nodes in private subnets
+- Worker nodes can be in public subnets
+- Direct access from internet
+- Simpler deployment and configuration
 
-**配置要求：**
-- 需要公共和私有子网
+**Configuration Requirements:**
+- Requires both public and private subnets
 - `publish: External`
-- 所有子网都需要包含可用区信息
+- All subnets must contain availability zone information
 
-**使用场景：**
-- 开发和测试环境
-- 快速部署和验证
-- 不需要严格网络隔离的环境
+**Use Cases:**
+- Development and testing environments
+- Quick deployment and validation
+- Environments without strict network isolation requirements
 
-**配置文件：** `install-config.sample.public.yaml`
+**Configuration File:** `install-config.sample.public.yaml`
 
-**VPC 模板：** `vpc-template.yaml`
+**VPC Template:** `vpc-template.yaml`
 
-## 配置差异对比
+## Configuration Comparison
 
-| 配置项 | 私有集群 | 公共集群 |
-|--------|----------|----------|
-| 子网配置 | 仅私有子网 | 公共 + 私有子网 |
+| Configuration Item | Private Cluster | Public Cluster |
+|--------------------|-----------------|----------------|
+| Subnet Configuration | Only private subnets | Public + private subnets |
 | publish | Internal | External |
-| 网络访问 | 通过堡垒主机/VPN | 直接互联网访问 |
-| 安全性 | 高 | 中等 |
-| 部署复杂度 | 中等 | 简单 |
+| Network Access | Via bastion host/VPN | Direct internet access |
+| Security | High | Medium |
+| Deployment Complexity | Medium | Simple |
 
-## 使用方法
+## Usage Methods
 
-### 生成配置
+### Generate Configuration
 
-使用 `get-vpc-outputs.sh` 脚本生成相应的配置：
+Use the `get-vpc-outputs.sh` script to generate corresponding configurations:
 
 ```bash
-# 私有集群配置
+# Private cluster configuration
 ./get-vpc-outputs.sh <stack-name> private
 
-# 公共集群配置
+# Public cluster configuration
 ./get-vpc-outputs.sh <stack-name> public
 
-# 自动检测（推荐）
+# Auto-detection (recommended)
 ./get-vpc-outputs.sh <stack-name>
 ```
 
-### 应用标签
+### Apply Labels
 
-使用 `tag-subnets.sh` 脚本为子网应用必要的标签：
+Use the `tag-subnets.sh` script to apply necessary labels to subnets:
 
 ```bash
 ./tag-subnets.sh <stack-name> <cluster-name>
 ```
 
-## VPC 模板说明
+## VPC Template Description
 
-**重要：** 私有集群和公共集群使用不同的 VPC 模板，主要区别在于 `MapPublicIpOnLaunch` 配置。
+**Important:** Private and public clusters use different VPC templates, mainly differing in `MapPublicIpOnLaunch` configuration.
 
-### 模板选择：
+### Template Selection:
 
-1. **私有集群**：使用 `vpc-template-private-cluster.yaml`
-   - 公共子网：`MapPublicIpOnLaunch: "false"`（更安全）
-   - 私有子网：`MapPublicIpOnLaunch: "false"`
+1. **Private Cluster**: Use `vpc-template-private-cluster.yaml`
+   - Public subnets: `MapPublicIpOnLaunch: "false"` (more secure)
+   - Private subnets: `MapPublicIpOnLaunch: "false"`
 
-2. **公共集群**：使用 `vpc-template-public-cluster.yaml`
-   - 公共子网：`MapPublicIpOnLaunch: "true"`（支持公网访问）
-   - 私有子网：`MapPublicIpOnLaunch: "false"`
+2. **Public Cluster**: Use `vpc-template-public-cluster.yaml`
+   - Public subnets: `MapPublicIpOnLaunch: "true"` (supports public access)
+   - Private subnets: `MapPublicIpOnLaunch: "false"`
 
-### 所有模板都包含：
-- **公共子网**：用于 NAT Gateway、Load Balancer、Bastion Host
-- **私有子网**：用于 OpenShift 节点部署
-- **完整的网络基础设施**：NAT Gateway、路由表、VPC Endpoints
+### All templates include:
+- **Public subnets**: For NAT Gateway, Load Balancer, Bastion Host
+- **Private subnets**: For OpenShift node deployment
+- **Complete network infrastructure**: NAT Gateway, route tables, VPC Endpoints
 
-## 注意事项
+## Notes
 
-1. **OpenShift 4.19+ 要求**：所有子网都必须包含可用区信息
-2. **子网数量**：建议每个可用区至少有一个公共和一个私有子网
-3. **标签要求**：子网必须正确标记以支持 Kubernetes 网络功能
-4. **网络规划**：确保子网 CIDR 不重叠且符合 OpenShift 要求
-5. **VPC 统一性**：两种集群类型使用相同的 VPC 结构，区别仅在于 `install-config.yaml` 的配置
+1. **OpenShift 4.19+ Requirements**: All subnets must contain availability zone information
+2. **Subnet Quantity**: Recommend at least one public and one private subnet per availability zone
+3. **Label Requirements**: Subnets must be properly labeled to support Kubernetes network functionality
+4. **Network Planning**: Ensure subnet CIDRs do not overlap and meet OpenShift requirements
+5. **VPC Consistency**: Both cluster types use the same VPC structure, differences only in `install-config.yaml` configuration
 
-## 故障排除
+## Troubleshooting
 
-### 常见错误
+### Common Errors
 
-1. **"No public subnet provided"**：公共集群需要公共子网
-2. **"Invalid subnet configuration"**：检查子网 ID 和可用区配置
-3. **"Missing required tags"**：运行 `tag-subnets.sh` 脚本
+1. **"No public subnet provided"**: Public clusters require public subnets
+2. **"Invalid subnet configuration"**: Check subnet IDs and availability zone configuration
+3. **"Missing required tags"**: Run `tag-subnets.sh` script
 
-### 验证步骤
+### Verification Steps
 
-1. 检查 VPC 输出：`./get-vpc-outputs.sh <stack-name>`
-2. 验证子网标签：检查 AWS 控制台中的子网标签
-3. 测试网络连通性：确保子网间可以正常通信
+1. Check VPC outputs: `./get-vpc-outputs.sh <stack-name>`
+2. Verify subnet labels: Check subnet labels in AWS console
+3. Test network connectivity: Ensure subnets can communicate properly

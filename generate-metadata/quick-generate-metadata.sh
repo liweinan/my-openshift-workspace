@@ -1,16 +1,16 @@
 #!/bin/bash
 
 # quick-generate-metadata.sh
-# 快速生成 metadata.json 的简化版本
+# Quick generation of metadata.json - simplified version
 
 set -o nounset
 set -o errexit
 set -o pipefail
 
-# 检查参数
+# Check parameters
 if [[ $# -lt 4 ]]; then
-    echo "用法: $0 <cluster_name> <region> <infra_id> <cluster_id> [output_dir]"
-    echo "示例: $0 my-cluster us-east-1 my-cluster-abc123 12345678-1234-1234-1234-123456789012"
+    echo "Usage: $0 <cluster_name> <region> <infra_id> <cluster_id> [output_dir]"
+    echo "Example: $0 my-cluster us-east-1 my-cluster-abc123 12345678-1234-1234-1234-123456789012"
     exit 1
 fi
 
@@ -20,10 +20,10 @@ INFRA_ID="$3"
 CLUSTER_ID="$4"
 OUTPUT_DIR="${5:-./cleanup}"
 
-# 创建输出目录
+# Create output directory
 mkdir -p "$OUTPUT_DIR"
 
-# 生成 metadata.json
+# Generate metadata.json
 cat > "$OUTPUT_DIR/metadata.json" << EOF
 {
   "clusterName": "$CLUSTER_NAME",
@@ -46,7 +46,7 @@ cat > "$OUTPUT_DIR/metadata.json" << EOF
 }
 EOF
 
-echo "✅ metadata.json 已生成到: $OUTPUT_DIR/metadata.json"
-echo "📋 销毁命令:"
+echo "✅ metadata.json generated at: $OUTPUT_DIR/metadata.json"
+echo "📋 Destroy commands:"
 echo "   cd $OUTPUT_DIR"
 echo "   openshift-install destroy cluster --dir . --log-level debug"

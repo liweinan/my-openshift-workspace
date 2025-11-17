@@ -1,28 +1,28 @@
 #!/bin/bash
 
-# 检查参数
+# Check parameters
 if [ $# -lt 1 ]; then
-    echo "用法: $0 <STACK_NAME>"
-    echo "示例: $0 my-vpc-stack"
+    echo "Usage: $0 <STACK_NAME>"
+    echo "Example: $0 my-vpc-stack"
     echo ""
-    echo "注意: 此脚本会输出私有群集和公有群集的配置，请根据你的需求选择"
+    echo "Note: This script outputs configurations for both private and public clusters, please choose according to your needs"
     exit 1
 fi
 
 STACK_NAME=$1
 REGION=${2:-"us-east-1"}
 
-echo "正在查询 CloudFormation 堆栈: $STACK_NAME"
-echo "区域: $REGION"
+echo "Querying CloudFormation stack: $STACK_NAME"
+echo "Region: $REGION"
 echo ""
 
-# 检查堆栈是否存在
+# Check if stack exists
 if ! aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$REGION" >/dev/null 2>&1; then
-    echo "错误: 堆栈 '$STACK_NAME' 不存在或无法访问"
+    echo "Error: Stack '$STACK_NAME' does not exist or cannot be accessed"
     exit 1
 fi
 
-# 获取 VPC ID
+# Get VPC ID
 VPC_ID=$(aws cloudformation describe-stacks \
     --stack-name "$STACK_NAME" \
     --region "$REGION" \
@@ -30,14 +30,14 @@ VPC_ID=$(aws cloudformation describe-stacks \
     --output text)
 
 if [ -z "$VPC_ID" ] || [ "$VPC_ID" = "None" ]; then
-    echo "错误: 无法获取 VPC ID"
+    echo "Error: Unable to get VPC ID"
     exit 1
 fi
 
 echo "VPC ID: $VPC_ID"
 echo ""
 
-# 获取可用区
+# Get availability zones
 ZONES=($(aws cloudformation describe-stacks \
     --stack-name "$STACK_NAME" \
     --region "$REGION" \
@@ -45,14 +45,14 @@ ZONES=($(aws cloudformation describe-stacks \
     --output text | tr ',' ' '))
 
 if [ ${#ZONES[@]} -eq 0 ]; then
-    echo "错误: 无法获取可用区信息"
+    echo "Error: Unable to get availability zone information"
     exit 1
 fi
 
-echo "可用区: ${ZONES[*]}"
+echo "Availability zones: ${ZONES[*]}"
 echo ""
 
-# 获取公共子网
+# Get public subnets
 PUBLIC_SUBNET_IDS=$(aws cloudformation describe-stacks \
     --stack-name "$STACK_NAME" \
     --region "$REGION" \
@@ -60,11 +60,11 @@ PUBLIC_SUBNET_IDS=$(aws cloudformation describe-stacks \
     --output text)
 
 if [ -z "$PUBLIC_SUBNET_IDS" ] || [ "$PUBLIC_SUBNET_IDS" = "None" ]; then
-    echo "错误: 无法获取公共子网 ID"
+    echo "Error: Unable to get public subnet ID"
     exit 1
 fi
 
-# 获取私有子网
+# Get private subnets
 PRIVATE_SUBNET_IDS=$(aws cloudformation describe-stacks \
     --stack-name "$STACK_NAME" \
     --region "$REGION" \
@@ -72,20 +72,20 @@ PRIVATE_SUBNET_IDS=$(aws cloudformation describe-stacks \
     --output text)
 
 if [ -z "$PRIVATE_SUBNET_IDS" ] || [ "$PRIVATE_SUBNET_IDS" = "None" ]; then
-    echo "错误: 无法获取私有子网 ID"
+    echo "Error: Unable to get private subnet ID"
     exit 1
 fi
 
-# 转换为数组
+# Convert to arrays
 PUBLIC_SUBNET_ARRAY=($(echo "$PUBLIC_SUBNET_IDS" | tr ',' ' '))
 PRIVATE_SUBNET_ARRAY=($(echo "$PRIVATE_SUBNET_IDS" | tr ',' ' '))
 
-echo "公共子网数量: ${#PUBLIC_SUBNET_ARRAY[@]}"
-echo "私有子网数量: ${#PRIVATE_SUBNET_ARRAY[@]}"
+echo "Number of public subnets: ${#PUBLIC_SUBNET_ARRAY[@]}"
+echo "Number of private subnets: ${#PRIVATE_SUBNET_ARRAY[@]}"
 echo ""
 
 echo "=========================================="
-echo "私有群集配置 (publish: Internal)"
+echo "Private cluster configuration (publish: Internal)"
 echo "=========================================="
 echo "platform:"
 echo "  aws:"
@@ -97,11 +97,11 @@ for i in "${!PRIVATE_SUBNET_ARRAY[@]}"; do
 done
 echo "publish: Internal"
 echo ""
-echo "注意: 私有群集只使用私有子网，通过 NAT Gateway 访问互联网"
+echo "Note: Private clusters only use private subnets and access the internet via NAT Gateway"
 echo ""
 
 echo "=========================================="
-echo "公有群集配置 (publish: External)"
+echo "Public cluster configuration (publish: External)"
 echo "=========================================="
 echo "platform:"
 echo "  aws:"
@@ -116,12 +116,12 @@ for i in "${!PRIVATE_SUBNET_ARRAY[@]}"; do
 done
 echo "publish: External"
 echo ""
-echo "注意: 公有群集使用公共+私有子网组合"
+echo "Note: Public clusters use a combination of public + private subnets"
 echo ""
 
 echo "=========================================="
-echo "使用说明:"
-echo "1. 复制上述配置到你的 install-config.yaml 文件中"
-echo "2. 根据你的需求选择 publish: Internal 或 External"
-echo "3. 确保 pull-secret 已正确配置"
+echo "Usage instructions:"
+echo "1. Copy the above configuration to your install-config.yaml file"
+echo "2. Choose publish: Internal or External according to your needs"
+echo "3. Ensure pull-secret is properly configured"
 echo "=========================================="
