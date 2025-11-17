@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 设置终端编码
+# Set terminal encoding
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
 
@@ -9,7 +9,7 @@ printf "========================\n\n"
 
 printf "This script will help you quickly set up RHEL on AWS.\n\n"
 
-# 检查当前订阅状态
+# Check current subscription status
 printf "1. Checking current subscription status...\n"
 subscription-manager status
 
@@ -51,7 +51,7 @@ else
     esac
 fi
 
-# 如果注册成功，继续设置
+# If registration is successful, continue setup
 if subscription-manager identity >/dev/null 2>&1; then
     printf "\n3. Attaching subscription...\n"
     subscription-manager attach --auto

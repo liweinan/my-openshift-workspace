@@ -1,18 +1,18 @@
 #!/bin/bash
 
-# OCP-29781 网络隔离测试脚本
-# 验证两个集群之间无法通信
+# OCP-29781 Network Isolation Test Script
+# Verify that the two clusters cannot communicate with each other
 
 set -euo pipefail
 
-# 颜色输出
+# Color output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# 日志函数
+# Logging functions
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
 }
@@ -29,13 +29,13 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# 获取集群master节点IP
+# Get cluster master node IPs
 get_master_ips() {
     local cluster_dir="$1"
     local kubeconfig="${cluster_dir}/auth/kubeconfig"
     
     if [[ ! -f "${kubeconfig}" ]]; then
-        log_error "未找到kubeconfig文件: ${kubeconfig}"
+        log_error "Kubeconfig file not found: ${kubeconfig}"
         return 1
     fi
     
@@ -45,40 +45,40 @@ get_master_ips() {
     master_ips=$(oc get nodes -o wide --no-headers | awk '$3 == "master" {print $6}')
     
     if [[ -z "${master_ips}" ]]; then
-        log_error "未找到master节点"
+        log_error "No master nodes found"
         return 1
     fi
     
     echo "${master_ips}"
 }
 
-# 部署SSH bastion
+# Deploy SSH bastion
 deploy_ssh_bastion() {
     local cluster_dir="$1"
     local kubeconfig="${cluster_dir}/auth/kubeconfig"
     
-    log_info "部署SSH bastion到集群 ${cluster_dir}..."
+    log_info "Deploying SSH bastion to cluster ${cluster_dir}..."
     
     export KUBECONFIG="${kubeconfig}"
     
-    # 检查bastion是否已存在
+    # Check if bastion already exists
     if oc get service ssh-bastion -n openshift-ssh-bastion &> /dev/null; then
-        log_info "SSH bastion已存在"
+        log_info "SSH bastion already exists"
         return 0
     fi
     
-    # 部署SSH bastion
+    # Deploy SSH bastion
     curl -s https://raw.githubusercontent.com/eparis/ssh-bastion/master/deploy/deploy.sh | bash
     
     if [[ $? -eq 0 ]]; then
-        log_success "SSH bastion部署成功"
+        log_success "SSH bastion deployment successful"
     else
-        log_error "SSH bastion部署失败"
+        log_error "SSH bastion deployment failed"
         return 1
     fi
 }
 
-# 通过bastion执行远程命令
+# Execute remote command through bastion
 run_remote_command() {
     local cluster_dir="$1"
     local target_ip="$2"
@@ -87,108 +87,108 @@ run_remote_command() {
     
     export KUBECONFIG="${kubeconfig}"
     
-    # 获取bastion hostname
+    # Get bastion hostname
     local bastion_hostname
     bastion_hostname=$(oc get service -n openshift-ssh-bastion ssh-bastion -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
     
     if [[ -z "${bastion_hostname}" ]]; then
-        log_error "无法获取bastion hostname"
+        log_error "Cannot get bastion hostname"
         return 1
     fi
     
-    # 获取SSH密钥路径
+    # Get SSH key path
     local ssh_key="${HOME}/.ssh/id_rsa"
     if [[ ! -f "${ssh_key}" ]]; then
-        log_error "未找到SSH密钥: ${ssh_key}"
+        log_error "SSH key not found: ${ssh_key}"
         return 1
     fi
     
-    # 构建SSH命令
+    # Build SSH command
     local ssh_cmd="ssh -i \"${ssh_key}\" -t -t -o StrictHostKeyChecking=no -o ProxyCommand='ssh -i \"${ssh_key}\" -A -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -W %h:%p core@${bastion_hostname}' core@${target_ip} ${command}"
     
-    log_info "执行远程命令: ${command}"
-    log_info "目标IP: ${target_ip}"
+    log_info "Executing remote command: ${command}"
+    log_info "Target IP: ${target_ip}"
     
-    # 执行命令
+    # Execute command
     eval "${ssh_cmd}"
 }
 
-# 测试网络连通性
+# Test network connectivity
 test_network_connectivity() {
     local source_cluster="$1"
     local target_cluster="$2"
     local ping_count="${3:-3}"
     
-    log_info "测试网络连通性: ${source_cluster} -> ${target_cluster}"
+    log_info "Testing network connectivity: ${source_cluster} -> ${target_cluster}"
     
-    # 获取目标集群的master IP
+    # Get target cluster master IP
     local target_ips
     target_ips=$(get_master_ips "${target_cluster}")
     if [[ $? -ne 0 ]]; then
         return 1
     fi
     
-    # 获取源集群的master IP
+    # Get source cluster master IP
     local source_ips
     source_ips=$(get_master_ips "${source_cluster}")
     if [[ $? -ne 0 ]]; then
         return 1
     fi
     
-    # 选择第一个master节点作为源
+    # Select first master node as source
     local source_ip
     source_ip=$(echo "${source_ips}" | head -1)
     
-    # 选择第一个master节点作为目标
+    # Select first master node as target
     local target_ip
     target_ip=$(echo "${target_ips}" | head -1)
     
-    log_info "源IP: ${source_ip}"
-    log_info "目标IP: ${target_ip}"
+    log_info "Source IP: ${source_ip}"
+    log_info "Target IP: ${target_ip}"
     
-    # 部署SSH bastion到源集群
+    # Deploy SSH bastion to source cluster
     if ! deploy_ssh_bastion "${source_cluster}"; then
         return 1
     fi
     
-    # 执行ping测试
-    log_info "执行ping测试..."
+    # Execute ping test
+    log_info "Executing ping test..."
     local ping_output
     ping_output=$(run_remote_command "${source_cluster}" "${source_ip}" "ping -c ${ping_count} ${target_ip}" 2>&1)
     local ping_result=$?
     
-    echo "Ping输出:"
+    echo "Ping output:"
     echo "${ping_output}"
     echo
     
-    # 分析结果
+    # Analyze results
     if echo "${ping_output}" | grep -q "100% packet loss"; then
-        log_success "网络隔离测试通过 - 100% packet loss"
+        log_success "Network isolation test passed - 100% packet loss"
         return 0
     elif [[ ${ping_result} -eq 0 ]]; then
-        log_error "网络隔离测试失败 - 可以ping通目标"
+        log_error "Network isolation test failed - can ping target"
         return 1
     else
-        log_warning "网络隔离测试结果不明确 - ping命令失败但未显示100% packet loss"
+        log_warning "Network isolation test results are unclear - ping command failed but doesn't show 100% packet loss"
         return 1
     fi
 }
 
-# 显示使用说明
+# Display usage information
 show_usage() {
-    echo "使用方法: $0 <cluster1_dir> <cluster2_dir> [ping_count]"
+    echo "Usage: $0 <cluster1_dir> <cluster2_dir> [ping_count]"
     echo ""
-    echo "参数:"
-    echo "  cluster1_dir  - 第一个集群目录 (例如: cluster1)"
-    echo "  cluster2_dir  - 第二个集群目录 (例如: cluster2)"
-    echo "  ping_count    - ping次数 (默认: 3)"
+    echo "Parameters:"
+    echo "  cluster1_dir  - First cluster directory (e.g.: cluster1)"
+    echo "  cluster2_dir  - Second cluster directory (e.g.: cluster2)"
+    echo "  ping_count    - Number of ping attempts (default: 3)"
     echo ""
-    echo "示例:"
+    echo "Examples:"
     echo "  $0 cluster1 cluster2"
     echo "  $0 cluster1 cluster2 5"
 }
 
-# 主函数
+# Main function
 main() {
     if [[ $# -lt 2 || $# -gt 3 ]]; then
         show_usage
@@ -199,53 +199,53 @@ main() {
     local cluster2_dir="$2"
     local ping_count="${3:-3}"
     
-    # 验证集群目录
+    # Validate cluster directories
     for cluster_dir in "${cluster1_dir}" "${cluster2_dir}"; do
         if [[ ! -d "${cluster_dir}" ]]; then
-            log_error "集群目录不存在: ${cluster_dir}"
+            log_error "Cluster directory does not exist: ${cluster_dir}"
             exit 1
         fi
         
         local kubeconfig="${cluster_dir}/auth/kubeconfig"
         if [[ ! -f "${kubeconfig}" ]]; then
-            log_error "未找到kubeconfig文件: ${kubeconfig}"
+            log_error "Kubeconfig file not found: ${kubeconfig}"
             exit 1
         fi
     done
     
-    log_info "开始网络隔离测试"
-    log_info "集群1: ${cluster1_dir}"
-    log_info "集群2: ${cluster2_dir}"
-    log_info "Ping次数: ${ping_count}"
+    log_info "Starting network isolation test"
+    log_info "Cluster 1: ${cluster1_dir}"
+    log_info "Cluster 2: ${cluster2_dir}"
+    log_info "Ping count: ${ping_count}"
     echo
     
     local all_tests_passed=true
     
-    # 测试集群1到集群2的连通性
-    log_info "=== 测试集群1到集群2的连通性 ==="
+    # Test connectivity from cluster1 to cluster2
+    log_info "=== Testing connectivity from cluster1 to cluster2 ==="
     if ! test_network_connectivity "${cluster1_dir}" "${cluster2_dir}" "${ping_count}"; then
         all_tests_passed=false
     fi
     echo
     
-    # 测试集群2到集群1的连通性
-    log_info "=== 测试集群2到集群1的连通性 ==="
+    # Test connectivity from cluster2 to cluster1
+    log_info "=== Testing connectivity from cluster2 to cluster1 ==="
     if ! test_network_connectivity "${cluster2_dir}" "${cluster1_dir}" "${ping_count}"; then
         all_tests_passed=false
     fi
     echo
     
-    # 总结结果
+    # Summarize results
     if [[ "${all_tests_passed}" == "true" ]]; then
-        log_success "网络隔离测试完成 - 所有测试通过"
-        log_success "两个集群之间无法通信，网络隔离正常"
+        log_success "Network isolation test completed - all tests passed"
+        log_success "The two clusters cannot communicate with each other, network isolation is normal"
         exit 0
     else
-        log_error "网络隔离测试完成 - 发现问题"
-        log_error "两个集群之间可以通信，网络隔离失败"
+        log_error "Network isolation test completed - issues found"
+        log_error "The two clusters can communicate with each other, network isolation failed"
         exit 1
     fi
 }
 
-# 运行主函数
+# Run main function
 main "$@"

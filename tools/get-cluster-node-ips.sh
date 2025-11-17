@@ -1,20 +1,20 @@
 #!/bin/bash
 #
 # get-cluster-node-ips.sh
-# 获取 OpenShift 集群所有节点的 IP 地址
+# Get IP addresses of all nodes in OpenShift cluster
 #
-# 用法:
+# Usage:
 #   ./get-cluster-node-ips.sh [OPTIONS]
 #
-# 选项:
-#   -c, --cluster-name NAME    集群名称 (必需)
-#   -r, --region REGION        AWS 区域 (默认: us-east-1)
-#   -f, --format FORMAT        输出格式: table, json, export (默认: table)
-#   -t, --type TYPE           节点类型: all, bootstrap, master, worker (默认: all)
-#   -v, --verbose             详细输出
-#   -h, --help                显示帮助信息
+# Options:
+#   -c, --cluster-name NAME    Cluster name (required)
+#   -r, --region REGION        AWS region (default: us-east-1)
+#   -f, --format FORMAT        Output format: table, json, export (default: table)
+#   -t, --type TYPE           Node type: all, bootstrap, master, worker (default: all)
+#   -v, --verbose             Verbose output
+#   -h, --help                Show help message
 #
-# 示例:
+# Examples:
 #   ./get-cluster-node-ips.sh -c weli-testy
 #   ./get-cluster-node-ips.sh -c weli-testy -r us-west-2 -f json
 #   ./get-cluster-node-ips.sh -c weli-testy -t bootstrap -f export
@@ -22,21 +22,21 @@
 
 set -euo pipefail
 
-# 颜色代码
+# Color codes
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# 默认值
+# Default values
 CLUSTER_NAME=""
 REGION="us-east-1"
 FORMAT="table"
 NODE_TYPE="all"
 VERBOSE=false
 
-# 打印函数
+# Print functions
 print_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
 }
@@ -53,34 +53,34 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1" >&2
 }
 
-# 显示帮助
+# Show help
 show_help() {
     cat << EOF
-get-cluster-node-ips.sh - 获取 OpenShift 集群所有节点的 IP 地址
+get-cluster-node-ips.sh - Get IP addresses of all nodes in OpenShift cluster
 
-用法:
+Usage:
     $0 [OPTIONS]
 
 选项:
-    -c, --cluster-name NAME    集群名称 (必需)
-    -r, --region REGION        AWS 区域 (默认: us-east-1)
-    -f, --format FORMAT        输出格式: table, json, export (默认: table)
-    -t, --type TYPE           节点类型: all, bootstrap, master, worker (默认: all)
-    -v, --verbose             详细输出
-    -h, --help                显示帮助信息
+    -c, --cluster-name NAME    Cluster name (required)
+    -r, --region REGION        AWS region (default: us-east-1)
+    -f, --format FORMAT        Output format: table, json, export (default: table)
+    -t, --type TYPE           Node type: all, bootstrap, master, worker (default: all)
+    -v, --verbose             Verbose output
+    -h, --help                Show help message
 
-输出格式:
-    table    - 表格格式显示
-    json     - JSON 格式输出
-    export   - 导出为环境变量格式
+Output formats:
+    table    - Table format display
+    json     - JSON format output
+    export   - Export as environment variable format
 
-节点类型:
-    all      - 所有节点 (bootstrap, master, worker)
-    bootstrap - 仅 bootstrap 节点
-    master   - 仅 master 节点
-    worker   - 仅 worker 节点
+Node types:
+    all      - All nodes (bootstrap, master, worker)
+    bootstrap - Only bootstrap node
+    master   - Only master nodes
+    worker   - Only worker nodes
 
-示例:
+Examples:
     $0 -c weli-testy
     $0 -c weli-testy -r us-west-2 -f json
     $0 -c weli-testy -t bootstrap -f export
@@ -89,37 +89,37 @@ get-cluster-node-ips.sh - 获取 OpenShift 集群所有节点的 IP 地址
 EOF
 }
 
-# 检查依赖
+# Check dependencies
 check_dependencies() {
     if ! command -v aws &> /dev/null; then
-        print_error "AWS CLI 未安装或不在 PATH 中"
+        print_error "AWS CLI is not installed or not in PATH"
         exit 1
     fi
     
     if ! command -v jq &> /dev/null; then
-        print_error "jq 未安装或不在 PATH 中"
+        print_error "jq is not installed or not in PATH"
         exit 1
     fi
     
     # 检查 AWS 凭证
     if ! aws sts get-caller-identity &> /dev/null; then
-        print_error "AWS 凭证未配置或无效"
+        print_error "AWS credentials are not configured or invalid"
         exit 1
     fi
 }
 
-# 获取 bootstrap 节点 IP
+# Get bootstrap node IP
 get_bootstrap_ip() {
     local bootstrap_ip
     
-    # 首先尝试直接匹配
+    # First try direct matching
     bootstrap_ip=$(aws ec2 describe-instances \
         --region "$REGION" \
         --filters "Name=tag:Name,Values=${CLUSTER_NAME}-bootstrap" \
         --query 'Reservations[*].Instances[*].[InstanceId,State.Name,PublicIpAddress,PrivateIpAddress]' \
         --output json 2>/dev/null)
     
-    # 如果没找到，尝试带 infraID 的格式
+    # If not found, try format with infraID
     if [[ "$bootstrap_ip" == "[]" ]] || [[ -z "$bootstrap_ip" ]]; then
         bootstrap_ip=$(aws ec2 describe-instances \
             --region "$REGION" \
@@ -130,7 +130,7 @@ get_bootstrap_ip() {
     
     if [[ "$bootstrap_ip" == "[]" ]] || [[ -z "$bootstrap_ip" ]]; then
         if [[ "$VERBOSE" == "true" ]]; then
-            print_warning "未找到 bootstrap 节点"
+            print_warning "Bootstrap node not found"
         fi
         return 1
     fi
@@ -138,7 +138,7 @@ get_bootstrap_ip() {
     echo "$bootstrap_ip"
 }
 
-# 获取 master 节点 IP
+# Get master node IPs
 get_master_ips() {
     local master_ips
     
@@ -168,7 +168,7 @@ get_master_ips() {
     echo "$master_ips"
 }
 
-# 获取 worker 节点 IP
+# Get worker node IPs
 get_worker_ips() {
     local worker_ips
     
@@ -198,7 +198,7 @@ get_worker_ips() {
     echo "$worker_ips"
 }
 
-# 格式化输出为表格
+# Format output as table
 format_table() {
     local data="$1"
     local node_type="$2"
@@ -208,7 +208,7 @@ format_table() {
     fi
     
     echo ""
-    echo "=== $node_type 节点 ==="
+    echo "=== $node_type Nodes ==="
     echo "Instance ID          | State      | Public IP      | Private IP"
     echo "---------------------|------------|----------------|----------------"
     
@@ -217,7 +217,7 @@ format_table() {
     done
 }
 
-# 格式化输出为 JSON
+# Format output as JSON
 format_json() {
     local bootstrap_data="$1"
     local master_data="$2"
@@ -240,15 +240,15 @@ format_json() {
     echo "$result" | jq .
 }
 
-# 格式化输出为环境变量
+# Format output as environment variables
 format_export() {
     local bootstrap_data="$1"
     local master_data="$2"
     local worker_data="$3"
     
-    echo "# OpenShift 集群节点 IP 地址"
-    echo "# 集群名称: $CLUSTER_NAME"
-    echo "# 区域: $REGION"
+    echo "# OpenShift cluster node IP addresses"
+    echo "# Cluster name: $CLUSTER_NAME"
+    echo "# Region: $REGION"
     echo ""
     
     # Bootstrap 节点
@@ -311,8 +311,8 @@ format_export() {
         echo ""
     fi
     
-    # 汇总变量
-    echo "# 汇总变量"
+    # Summary variables
+    echo "# Summary variables"
     if [[ "$bootstrap_data" != "[]" ]] && [[ -n "$bootstrap_data" ]]; then
         local bootstrap_public=$(echo "$bootstrap_data" | jq -r '.[0][0][2] // empty')
         if [[ -n "$bootstrap_public" ]]; then
@@ -373,67 +373,67 @@ main() {
     
     # 验证必需参数
     if [[ -z "$CLUSTER_NAME" ]]; then
-        print_error "集群名称是必需的 (-c, --cluster-name)"
+        print_error "Cluster name is required (-c, --cluster-name)"
         show_help
         exit 1
     fi
     
     # 验证格式
     if [[ "$FORMAT" != "table" && "$FORMAT" != "json" && "$FORMAT" != "export" ]]; then
-        print_error "无效的输出格式: $FORMAT"
-        print_error "支持的格式: table, json, export"
+        print_error "Invalid output format: $FORMAT"
+        print_error "Supported formats: table, json, export"
         exit 1
     fi
     
     # 验证节点类型
     if [[ "$NODE_TYPE" != "all" && "$NODE_TYPE" != "bootstrap" && "$NODE_TYPE" != "master" && "$NODE_TYPE" != "worker" ]]; then
-        print_error "无效的节点类型: $NODE_TYPE"
-        print_error "支持的类型: all, bootstrap, master, worker"
+        print_error "Invalid node type: $NODE_TYPE"
+        print_error "Supported types: all, bootstrap, master, worker"
         exit 1
     fi
     
-    # 检查依赖
+    # Check dependencies
     check_dependencies
     
     if [[ "$VERBOSE" == "true" ]]; then
-        print_info "集群名称: $CLUSTER_NAME"
-        print_info "AWS 区域: $REGION"
-        print_info "输出格式: $FORMAT"
-        print_info "节点类型: $NODE_TYPE"
+        print_info "Cluster name: $CLUSTER_NAME"
+        print_info "AWS region: $REGION"
+        print_info "Output format: $FORMAT"
+        print_info "Node type: $NODE_TYPE"
     fi
     
-    # 获取节点信息
+    # Get node information
     local bootstrap_data="[]"
     local master_data="[]"
     local worker_data="[]"
     
     if [[ "$NODE_TYPE" == "all" || "$NODE_TYPE" == "bootstrap" ]]; then
         if [[ "$VERBOSE" == "true" ]]; then
-            print_info "获取 bootstrap 节点信息..."
+            print_info "Getting bootstrap node information..."
         fi
         bootstrap_data=$(get_bootstrap_ip || echo "[]")
     fi
     
     if [[ "$NODE_TYPE" == "all" || "$NODE_TYPE" == "master" ]]; then
         if [[ "$VERBOSE" == "true" ]]; then
-            print_info "获取 master 节点信息..."
+            print_info "Getting master node information..."
         fi
         master_data=$(get_master_ips || echo "[]")
     fi
     
     if [[ "$NODE_TYPE" == "all" || "$NODE_TYPE" == "worker" ]]; then
         if [[ "$VERBOSE" == "true" ]]; then
-            print_info "获取 worker 节点信息..."
+            print_info "Getting worker node information..."
         fi
         worker_data=$(get_worker_ips || echo "[]")
     fi
     
     # 检查是否找到任何节点
     if [[ "$bootstrap_data" == "[]" && "$master_data" == "[]" && "$worker_data" == "[]" ]]; then
-        print_error "未找到任何节点。请检查:"
-        print_error "1. 集群名称是否正确: $CLUSTER_NAME"
-        print_error "2. AWS 区域是否正确: $REGION"
-        print_error "3. 集群是否已创建"
+        print_error "No nodes found. Please check:"
+        print_error "1. If cluster name is correct: $CLUSTER_NAME"
+        print_error "2. If AWS region is correct: $REGION"
+        print_error "3. If cluster has been created"
         exit 1
     fi
     
@@ -458,7 +458,7 @@ main() {
             ;;
     esac
     
-    print_success "节点信息获取完成"
+    print_success "Node information retrieval completed"
 }
 
 # 运行主函数

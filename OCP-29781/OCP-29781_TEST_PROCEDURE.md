@@ -1,13 +1,13 @@
-# OCP-29781 测试流程 - 正确版本
+# OCP-29781 Test Procedure - Corrected Version
 
-## 🎯 测试目标
-在共享VPC中创建两个OpenShift集群，使用不同的隔离CIDR块，验证网络隔离。
+## 🎯 Test Objective
+Create two OpenShift clusters in a shared VPC using different isolated CIDR blocks and verify network isolation.
 
-## 📋 测试步骤
+## 📋 Test Steps
 
-### 步骤1: 创建VPC和子网
+### Step 1: Create VPC and Subnets
 ```bash
-# 使用原始模板创建VPC（不包含cluster标签）
+# Create VPC using original template (without cluster labels)
 aws cloudformation create-stack \
   --stack-name ocp29781-vpc \
   --template-body file://01_vpc_multiCidr.yaml \
@@ -16,19 +16,19 @@ aws cloudformation create-stack \
     ParameterKey=VpcCidr3,ParameterValue=10.190.0.0/16 \
     ParameterKey=AvailabilityZoneCount,ParameterValue=3
 
-# 等待VPC创建完成
+# Wait for VPC creation to complete
 aws cloudformation wait stack-create-complete --stack-name ocp29781-vpc
 ```
 
-### 步骤2: 获取VPC和子网信息
+### Step 2: Get VPC and Subnet Information
 ```bash
-# 获取VPC ID
+# Get VPC ID
 VPC_ID=$(aws cloudformation describe-stacks \
   --stack-name ocp29781-vpc \
   --query 'Stacks[0].Outputs[?OutputKey==`VpcId`].OutputValue' \
   --output text)
 
-# 获取子网ID
+# Get subnet IDs
 SUBNETS_CIDR1=$(aws cloudformation describe-stacks \
   --stack-name ocp29781-vpc \
   --query 'Stacks[0].Outputs[?OutputKey==`SubnetsIdsForCidr`].OutputValue' \
@@ -50,21 +50,21 @@ echo "CIDR2 Subnets: $SUBNETS_CIDR2"
 echo "CIDR3 Subnets: $SUBNETS_CIDR3"
 ```
 
-### 步骤3: 为集群1打标签
+### Step 3: Tag Subnets for Cluster1
 ```bash
-# 使用tag-subnets.sh脚本为集群1的子网打标签
-# 假设集群1使用CIDR2 (10.134.0.0/16)
+# Use tag-subnets.sh script to tag subnets for cluster1
+# Assume cluster1 uses CIDR2 (10.134.0.0/16)
 CLUSTER1_NAME="cluster1"
 CLUSTER1_PRIVATE_SUBNET=$(echo $SUBNETS_CIDR2 | cut -d',' -f1)
 CLUSTER1_PUBLIC_SUBNET=$(echo $SUBNETS_CIDR2 | cut -d',' -f2)
 
-# 为集群1的子网打标签
+# Tag subnets for cluster1
 ../../tools/tag-subnets.sh ocp29781-vpc $CLUSTER1_NAME
 ```
 
-### 步骤4: 创建集群1
+### Step 4: Create Cluster1
 ```bash
-# 创建集群1的install-config
+# Create install-config for cluster1
 cat > install-config-cluster1.yaml << EOF
 apiVersion: v1
 baseDomain: qe.devcluster.openshift.com
@@ -111,43 +111,43 @@ sshKey: |
   YOUR_SSH_PUBLIC_KEY_HERE
 EOF
 
-# 创建集群1
+# Create cluster1
 mkdir -p cluster1-install
 cp install-config-cluster1.yaml cluster1-install/install-config.yaml
 openshift-install create cluster --dir=cluster1-install
 ```
 
-### 步骤5: 创建Bastion Host（用于集群1）
+### Step 5: Create Bastion Host (for Cluster1)
 ```bash
-# 使用create-bastion-host.sh脚本在public subnet中创建bastion
+# Use create-bastion-host.sh script to create bastion in public subnet
 ../../tools/create-bastion-host.sh $VPC_ID $CLUSTER1_PUBLIC_SUBNET $CLUSTER1_NAME
 ```
 
-### 步骤6: 验证集群1健康状态
+### Step 6: Verify Cluster1 Health Status
 ```bash
-# 等待集群安装完成
+# Wait for cluster installation to complete
 openshift-install wait-for install-complete --dir=cluster1-install
 
-# 验证集群节点
+# Verify cluster nodes
 export KUBECONFIG=cluster1-install/auth/kubeconfig
 oc get nodes
 ```
 
-### 步骤7: 为集群2打标签
+### Step 7: Tag Subnets for Cluster2
 ```bash
-# 为集群2的子网打标签
-# 假设集群2使用CIDR3 (10.190.0.0/16)
+# Tag subnets for cluster2
+# Assume cluster2 uses CIDR3 (10.190.0.0/16)
 CLUSTER2_NAME="cluster2"
 CLUSTER2_PRIVATE_SUBNET=$(echo $SUBNETS_CIDR3 | cut -d',' -f1)
 CLUSTER2_PUBLIC_SUBNET=$(echo $SUBNETS_CIDR3 | cut -d',' -f2)
 
-# 为集群2的子网打标签
+# Tag subnets for cluster2
 ../../tools/tag-subnets.sh ocp29781-vpc $CLUSTER2_NAME
 ```
 
-### 步骤8: 创建集群2
+### Step 8: Create Cluster2
 ```bash
-# 创建集群2的install-config
+# Create install-config for cluster2
 cat > install-config-cluster2.yaml << EOF
 apiVersion: v1
 baseDomain: qe.devcluster.openshift.com
@@ -194,76 +194,75 @@ sshKey: |
   YOUR_SSH_PUBLIC_KEY_HERE
 EOF
 
-# 创建集群2
+# Create cluster2
 mkdir -p cluster2-install
 cp install-config-cluster2.yaml cluster2-install/install-config.yaml
 openshift-install create cluster --dir=cluster2-install
 ```
 
-### 步骤9: 创建Bastion Host（用于集群2）
+### Step 9: Create Bastion Host (for Cluster2)
 ```bash
-# 为集群2创建bastion host
+# Create bastion host for cluster2
 ../../tools/create-bastion-host.sh $VPC_ID $CLUSTER2_PUBLIC_SUBNET $CLUSTER2_NAME
 ```
 
-### 步骤10: 验证集群2健康状态
+### Step 10: Verify Cluster2 Health Status
 ```bash
-# 等待集群安装完成
+# Wait for cluster installation to complete
 openshift-install wait-for install-complete --dir=cluster2-install
 
-# 验证集群节点
+# Verify cluster nodes
 export KUBECONFIG=cluster2-install/auth/kubeconfig
 oc get nodes
 ```
 
-### 步骤11: 验证安全组配置
+### Step 11: Verify Security Group Configuration
 ```bash
-# 获取集群1的infraID
+# Get cluster1 infraID
 CLUSTER1_INFRA_ID=$(cat cluster1-install/metadata.json | jq -r .infraID)
 
-# 获取集群1的所有安全组
+# Get all security groups for cluster1
 aws ec2 describe-instances \
   --filters "Name=tag:kubernetes.io/cluster/$CLUSTER1_INFRA_ID,Values=owned" \
   | jq -r '.Reservations[].Instances[].SecurityGroups[].GroupId' | sort | uniq
 
-# 验证安全组规则是否匹配machine CIDR (10.134.0.0/16)
-# 检查master安全组的6443/tcp, 22623/tcp, 22/tcp, icmp端口
-# 检查worker安全组的22/tcp, icmp端口
+# Verify security group rules match machine CIDR (10.134.0.0/16)
+# Check master security group ports 6443/tcp, 22623/tcp, 22/tcp, icmp
+# Check worker security group ports 22/tcp, icmp
 ```
 
-### 步骤12: 验证网络隔离
+### Step 12: Verify Network Isolation
 ```bash
-# 从集群1的bastion host ping集群2的节点
-# 应该得到100% packet loss
+# Ping cluster2 nodes from cluster1's bastion host
+# Should get 100% packet loss
 
-# 从集群2的bastion host ping集群1的节点  
-# 应该得到100% packet loss
+# Ping cluster1 nodes from cluster2's bastion host  
+# Should get 100% packet loss
 ```
 
-### 步骤13: 清理资源
+### Step 13: Cleanup Resources
 ```bash
-# 销毁集群1
+# Destroy cluster1
 openshift-install destroy cluster --dir=cluster1-install
 
-# 销毁集群2
+# Destroy cluster2
 openshift-install destroy cluster --dir=cluster2-install
 
-# 销毁VPC
+# Destroy VPC
 aws cloudformation delete-stack --stack-name ocp29781-vpc
 ```
 
-## 🔧 关键修复点
+## 🔧 Key Fix Points
 
-1. **VPC模板保持原样** - 不包含cluster-specific标签
-2. **使用tag-subnets.sh脚本** - 在VPC创建后为子网打标签
-3. **使用create-bastion-host.sh脚本** - 在public subnet中创建bastion
-4. **正确的install-config格式** - 使用`platform.aws.vpc.subnets`而不是已弃用的`platform.aws.subnets`
+1. **Keep VPC Template Unchanged** - Do not include cluster-specific labels
+2. **Use tag-subnets.sh Script** - Tag subnets after VPC creation
+3. **Use create-bastion-host.sh Script** - Create bastion in public subnet
+4. **Correct install-config Format** - Use `platform.aws.vpc.subnets` instead of deprecated `platform.aws.subnets`
 
-## 📊 预期结果
+## 📊 Expected Results
 
-- ✅ VPC和子网创建成功
-- ✅ 两个集群在不同CIDR中成功安装
-- ✅ 网络隔离验证通过
-- ✅ 安全组配置正确
-- ✅ Bastion host在public subnet中创建
-
+- ✅ VPC and subnets created successfully
+- ✅ Two clusters successfully installed in different CIDRs
+- ✅ Network isolation verification passed
+- ✅ Security group configuration correct
+- ✅ Bastion host created in public subnet

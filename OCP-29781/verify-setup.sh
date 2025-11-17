@@ -1,25 +1,25 @@
 #!/bin/bash
 
-# OCP-29781 设置验证脚本
-# 验证VPC、子网标签和配置是否正确
+# OCP-29781 Setup Verification Script
+# Verify VPC, subnet tags, and configuration are correct
 
 set -euo pipefail
 
-# 配置变量
+# Configuration variables
 VPC_STACK_NAME="weli-test-vpc"
 CLUSTER1_NAME="weli-test-a"
 CLUSTER2_NAME="weli-test-b"
 AWS_REGION="us-east-1"
 VPC_ID="vpc-06230a0fab9777f55"
 
-# 颜色输出
+# Color output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# 日志函数
+# Logging functions
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
 }
@@ -36,46 +36,46 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# 验证VPC状态
+# Verify VPC status
 verify_vpc() {
-    log_info "验证VPC状态..."
+    log_info "Verifying VPC status..."
     
     if aws ec2 describe-vpcs --region "${AWS_REGION}" --vpc-ids "${VPC_ID}" &> /dev/null; then
-        log_success "VPC ${VPC_ID} 存在且可访问"
+        log_success "VPC ${VPC_ID} exists and is accessible"
         
-        # 显示VPC信息
+        # Display VPC information
         aws ec2 describe-vpcs --region "${AWS_REGION}" --vpc-ids "${VPC_ID}" \
             --query 'Vpcs[0].{VpcId:VpcId,State:State,CidrBlock:CidrBlock}' \
             --output table
     else
-        log_error "VPC ${VPC_ID} 不存在或不可访问"
+        log_error "VPC ${VPC_ID} does not exist or is not accessible"
         return 1
     fi
 }
 
-# 验证子网标签
+# Verify subnet tags
 verify_subnet_tags() {
-    log_info "验证子网标签..."
+    log_info "Verifying subnet tags..."
     
-    # 获取所有子网
+    # Get all subnets
     SUBNETS=$(aws ec2 describe-subnets \
         --region "${AWS_REGION}" \
         --filters "Name=vpc-id,Values=${VPC_ID}" \
         --query 'Subnets[].SubnetId' \
         --output text)
     
-    log_info "检查子网标签..."
+    log_info "Checking subnet tags..."
     for subnet in $SUBNETS; do
-        log_info "检查子网: ${subnet}"
+        log_info "Checking subnet: ${subnet}"
         
-        # 检查集群1标签
+        # Check cluster 1 tag
         CLUSTER1_TAG=$(aws ec2 describe-tags \
             --region "${AWS_REGION}" \
             --filters "Name=resource-id,Values=${subnet}" "Name=key,Values=kubernetes.io/cluster/${CLUSTER1_NAME}" \
             --query 'Tags[0].Value' \
             --output text 2>/dev/null || echo "None")
         
-        # 检查集群2标签
+        # Check cluster 2 tag
         CLUSTER2_TAG=$(aws ec2 describe-tags \
             --region "${AWS_REGION}" \
             --filters "Name=resource-id,Values=${subnet}" "Name=key,Values=kubernetes.io/cluster/${CLUSTER2_NAME}" \
@@ -83,22 +83,22 @@ verify_subnet_tags() {
             --output text 2>/dev/null || echo "None")
         
         if [[ "${CLUSTER1_TAG}" == "shared" ]]; then
-            log_success "  ✓ ${CLUSTER1_NAME} 标签: ${CLUSTER1_TAG}"
+            log_success "  ✓ ${CLUSTER1_NAME} tag: ${CLUSTER1_TAG}"
         else
-            log_warning "  ⚠ ${CLUSTER1_NAME} 标签: ${CLUSTER1_TAG}"
+            log_warning "  ⚠ ${CLUSTER1_NAME} tag: ${CLUSTER1_TAG}"
         fi
         
         if [[ "${CLUSTER2_TAG}" == "shared" ]]; then
-            log_success "  ✓ ${CLUSTER2_NAME} 标签: ${CLUSTER2_TAG}"
+            log_success "  ✓ ${CLUSTER2_NAME} tag: ${CLUSTER2_TAG}"
         else
-            log_warning "  ⚠ ${CLUSTER2_NAME} 标签: ${CLUSTER2_TAG}"
+            log_warning "  ⚠ ${CLUSTER2_NAME} tag: ${CLUSTER2_TAG}"
         fi
     done
 }
 
-# 验证子网CIDR分布
+# Verify subnet CIDR distribution
 verify_subnet_cidrs() {
-    log_info "验证子网CIDR分布..."
+    log_info "Verifying subnet CIDR distribution..."
     
     aws ec2 describe-subnets \
         --region "${AWS_REGION}" \
@@ -107,68 +107,68 @@ verify_subnet_cidrs() {
         --output table
 }
 
-# 验证install-config文件
+# Verify install-config files
 verify_install_configs() {
-    log_info "验证install-config文件..."
+    log_info "Verifying install-config files..."
     
-    # 检查文件是否存在
+    # Check if files exist
     if [[ -f "install-config-cluster1.yaml" ]]; then
-        log_success "install-config-cluster1.yaml 存在"
+        log_success "install-config-cluster1.yaml exists"
     else
-        log_error "install-config-cluster1.yaml 不存在"
+        log_error "install-config-cluster1.yaml does not exist"
         return 1
     fi
     
     if [[ -f "install-config-cluster2.yaml" ]]; then
-        log_success "install-config-cluster2.yaml 存在"
+        log_success "install-config-cluster2.yaml exists"
     else
-        log_error "install-config-cluster2.yaml 不存在"
+        log_error "install-config-cluster2.yaml does not exist"
         return 1
     fi
     
-    # 检查子网ID是否正确
-    log_info "验证子网ID配置..."
+    # Check if subnet IDs are correct
+    log_info "Verifying subnet ID configuration..."
     
-    # 集群1子网
+    # Cluster 1 subnets
     CLUSTER1_PRIVATE_SUBNET=$(grep -B 1 "role: private" install-config-cluster1.yaml | grep "id:" | awk '{print $2}')
     CLUSTER1_PUBLIC_SUBNET=$(grep -B 1 "role: public" install-config-cluster1.yaml | grep "id:" | awk '{print $2}')
     
-    log_info "集群1子网配置:"
-    log_info "  私有子网: ${CLUSTER1_PRIVATE_SUBNET}"
-    log_info "  公共子网: ${CLUSTER1_PUBLIC_SUBNET}"
+    log_info "Cluster 1 subnet configuration:"
+    log_info "  Private subnet: ${CLUSTER1_PRIVATE_SUBNET}"
+    log_info "  Public subnet: ${CLUSTER1_PUBLIC_SUBNET}"
     
-    # 集群2子网
+    # Cluster 2 subnets
     CLUSTER2_PRIVATE_SUBNET=$(grep -B 1 "role: private" install-config-cluster2.yaml | grep "id:" | awk '{print $2}')
     CLUSTER2_PUBLIC_SUBNET=$(grep -B 1 "role: public" install-config-cluster2.yaml | grep "id:" | awk '{print $2}')
     
-    log_info "集群2子网配置:"
-    log_info "  私有子网: ${CLUSTER2_PRIVATE_SUBNET}"
-    log_info "  公共子网: ${CLUSTER2_PUBLIC_SUBNET}"
+    log_info "Cluster 2 subnet configuration:"
+    log_info "  Private subnet: ${CLUSTER2_PRIVATE_SUBNET}"
+    log_info "  Public subnet: ${CLUSTER2_PUBLIC_SUBNET}"
 }
 
-# 验证CIDR隔离
+# Verify CIDR isolation
 verify_cidr_isolation() {
-    log_info "验证CIDR隔离..."
+    log_info "Verifying CIDR isolation..."
     
-    # 集群1使用10.134.0.0/16
+    # Cluster 1 uses 10.134.0.0/16
     CLUSTER1_CIDR=$(grep "cidr:" install-config-cluster1.yaml | grep "10.134" | awk '{print $2}')
-    log_info "集群1 machineNetwork CIDR: ${CLUSTER1_CIDR}"
+    log_info "Cluster 1 machineNetwork CIDR: ${CLUSTER1_CIDR}"
     
-    # 集群2使用10.190.0.0/16
+    # Cluster 2 uses 10.190.0.0/16
     CLUSTER2_CIDR=$(grep "cidr:" install-config-cluster2.yaml | grep "10.190" | awk '{print $2}')
-    log_info "集群2 machineNetwork CIDR: ${CLUSTER2_CIDR}"
+    log_info "Cluster 2 machineNetwork CIDR: ${CLUSTER2_CIDR}"
     
     if [[ "${CLUSTER1_CIDR}" == "10.134.0.0/16" ]] && [[ "${CLUSTER2_CIDR}" == "10.190.0.0/16" ]]; then
-        log_success "CIDR隔离配置正确"
+        log_success "CIDR isolation configuration is correct"
     else
-        log_error "CIDR隔离配置错误"
+        log_error "CIDR isolation configuration is incorrect"
         return 1
     fi
 }
 
-# 主函数
+# Main function
 main() {
-    log_info "开始OCP-29781设置验证"
+    log_info "Starting OCP-29781 setup verification"
     echo
     
     verify_vpc
@@ -186,10 +186,10 @@ main() {
     verify_cidr_isolation
     echo
     
-    log_success "OCP-29781设置验证完成！"
+    log_success "OCP-29781 setup verification completed!"
     echo
-    log_info "下一步：运行 './run-ocp29781-test.sh' 开始完整测试"
+    log_info "Next step: run './run-ocp29781-test.sh' to start full testing"
 }
 
-# 运行主函数
+# Run main function
 main "$@"

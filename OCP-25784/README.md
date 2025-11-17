@@ -1,199 +1,199 @@
 # OCP-25784 - [ipi-on-aws] Create private clusters with no public endpoints and access from internet
 
-## 概述
+## Overview
 
-OCP-25784测试用例验证在AWS上创建私有OpenShift集群的能力，确保集群没有公共端点，只能通过VPC内的实例访问。
+OCP-25784 test case validates the ability to create private OpenShift clusters on AWS, ensuring clusters have no public endpoints and can only be accessed from instances within the VPC.
 
-## 测试目标
+## Test Objectives
 
-- 验证私有OpenShift集群的创建
-- 确保集群端点不可从互联网访问
-- 验证通过VPC内bastion主机访问集群的功能
-- 测试集群的完整生命周期管理
+- Validate creation of private OpenShift clusters
+- Ensure cluster endpoints are not accessible from the internet
+- Verify cluster access functionality through VPC-internal bastion hosts
+- Test complete cluster lifecycle management
 
-## 文件结构
+## File Structure
 
 ```
 OCP-25784/
-├── README.md                           # 本文档
-├── OCP-25784_TEST_PROCEDURE.md        # 详细测试步骤
-├── run-ocp25784-test.sh               # 自动化测试脚本
-└── install-config-template.yaml       # 安装配置模板（运行时生成）
+├── README.md                           # This document
+├── OCP-25784_TEST_PROCEDURE.md        # Detailed test steps
+├── run-ocp25784-test.sh               # Automated test script
+└── install-config-template.yaml       # Installation config template (generated at runtime)
 ```
 
-## 快速开始
+## Quick Start
 
-### 1. 运行自动化测试脚本
+### 1. Run Automated Test Script
 
 ```bash
-# 使用默认配置
+# Use default configuration
 ./run-ocp25784-test.sh
 
-# 使用自定义配置
+# Use custom configuration
 ./run-ocp25784-test.sh --cluster-name my-private-cluster --region us-west-2
 
-# 启用代理设置
+# Enable proxy settings
 ./run-ocp25784-test.sh --proxy
 
-# 跳过清理（保留资源用于手动测试）
+# Skip cleanup (keep resources for manual testing)
 ./run-ocp25784-test.sh --skip-cleanup
 ```
 
-### 2. 手动执行测试步骤
+### 2. Manual Test Steps
 
-参考 `OCP-25784_TEST_PROCEDURE.md` 文件中的详细步骤。
+Refer to the `OCP-25784_TEST_PROCEDURE.md` file for detailed steps.
 
-**重要**: 在开始安装前，确保将以下文件传输到bastion主机：
+**Important**: Before starting installation, ensure the following files are transferred to the bastion host:
 - `~/.openshift/pull-secret` - OpenShift pull secret
-- `~/.aws/` - AWS凭证目录
-- `oc` 和 `openshift-install` 工具
+- `~/.aws/` - AWS credentials directory
+- `oc` and `openshift-install` tools
 
-## 配置选项
+## Configuration Options
 
-### 命令行参数
+### Command Line Parameters
 
-| 参数 | 描述 | 默认值 |
-|------|------|--------|
-| `-v, --vpc-stack-name` | VPC CloudFormation堆栈名称 | `weli-vpc-priv` |
-| `-c, --cluster-name` | OpenShift集群名称 | `weli-priv-test` |
-| `-r, --region` | AWS区域 | `us-east-1` |
-| `-b, --bastion-name` | Bastion主机名称 | `weli-test` |
-| `-d, --vpc-cidr` | VPC CIDR块 | `10.0.0.0/16` |
-| `-p, --proxy` | 启用代理设置 | `false` |
-| `-s, --skip-cleanup` | 跳过清理 | `false` |
+| Parameter | Description | Default Value |
+|-----------|-------------|---------------|
+| `-v, --vpc-stack-name` | VPC CloudFormation stack name | `weli-vpc-priv` |
+| `-c, --cluster-name` | OpenShift cluster name | `weli-priv-test` |
+| `-r, --region` | AWS region | `us-east-1` |
+| `-b, --bastion-name` | Bastion host name | `weli-test` |
+| `-d, --vpc-cidr` | VPC CIDR block | `10.0.0.0/16` |
+| `-p, --proxy` | Enable proxy settings | `false` |
+| `-s, --skip-cleanup` | Skip cleanup | `false` |
 
-### 环境变量
+### Environment Variables
 
-| 变量名 | 描述 |
-|--------|------|
-| `VPC_STACK_NAME` | VPC堆栈名称 |
-| `CLUSTER_NAME` | 集群名称 |
-| `AWS_REGION` | AWS区域 |
-| `BASTION_NAME` | Bastion主机名称 |
-| `VPC_CIDR` | VPC CIDR块 |
+| Variable Name | Description |
+|---------------|-------------|
+| `VPC_STACK_NAME` | VPC stack name |
+| `CLUSTER_NAME` | Cluster name |
+| `AWS_REGION` | AWS region |
+| `BASTION_NAME` | Bastion host name |
+| `VPC_CIDR` | VPC CIDR block |
 
-## 测试流程
+## Test Flow
 
-1. **基础设施准备**
-   - 创建VPC和子网
-   - 创建bastion主机
-   - 标记子网
+1. **Infrastructure Preparation**
+   - Create VPC and subnets
+   - Create bastion host
+   - Tag subnets
 
-2. **工具准备**
-   - 下载OpenShift CLI工具
-   - 传输工具到bastion主机
+2. **Tool Preparation**
+   - Download OpenShift CLI tools
+   - Transfer tools to bastion host
 
-3. **集群安装**
-   - 创建install-config.yaml
-   - 执行IPI安装
-   - 验证安装结果
+3. **Cluster Installation**
+   - Create install-config.yaml
+   - Execute IPI installation
+   - Verify installation results
 
-4. **功能验证**
-   - 验证VPC内访问
-   - 验证VPC外无法访问
-   - 测试集群功能
+4. **Functionality Verification**
+   - Verify VPC internal access
+   - Verify VPC external access is blocked
+   - Test cluster functionality
 
-5. **清理资源**
-   - 销毁集群
-   - 清理基础设施
+5. **Resource Cleanup**
+   - Destroy cluster
+   - Clean up infrastructure
 
-## 关键配置
+## Key Configuration
 
-### install-config.yaml 关键设置
+### install-config.yaml Key Settings
 
 ```yaml
-publish: Internal  # 关键：设置为Internal创建私有集群
+publish: Internal  # Key: Set to Internal to create private cluster
 platform:
   aws:
     vpc:
       subnets:
-        - id: <private-subnet-1>  # 使用私有子网
+        - id: <private-subnet-1>  # Use private subnets
         - id: <private-subnet-2>
 ```
 
-### 网络配置
+### Network Configuration
 
 - **VPC CIDR**: 10.0.0.0/16
-- **集群网络**: 10.128.0.0/14
-- **服务网络**: 172.30.0.0/16
-- **网络类型**: OVNKubernetes
+- **Cluster Network**: 10.128.0.0/14
+- **Service Network**: 172.30.0.0/16
+- **Network Type**: OVNKubernetes
 
-## 验证要点
+## Verification Points
 
-### 成功标准
+### Success Criteria
 
-- [ ] VPC和bastion主机创建成功
-- [ ] 子网正确标记Kubernetes标签
-- [ ] 私有集群安装成功
-- [ ] 所有节点和操作员状态正常
-- [ ] VPC内能够访问集群console
-- [ ] VPC外无法访问集群端点
-- [ ] 集群资源成功清理
+- [ ] VPC and bastion host created successfully
+- [ ] Subnets correctly tagged with Kubernetes labels
+- [ ] Private cluster installation successful
+- [ ] All nodes and operators status normal
+- [ ] VPC internal cluster console access possible
+- [ ] VPC external cluster endpoints blocked
+- [ ] Cluster resources successfully cleaned up
 
-### 网络隔离验证
+### Network Isolation Verification
 
 ```bash
-# VPC内访问（应该成功）
+# VPC internal access (should succeed)
 curl -v -k console-openshift-console.apps.<cluster-name>.qe.devcluster.openshift.com
 
-# VPC外访问（应该失败）
+# VPC external access (should fail)
 curl -v -k console-openshift-console.apps.<cluster-name>.qe.devcluster.openshift.com
 ```
 
-## 故障排除
+## Troubleshooting
 
-### 常见问题
+### Common Issues
 
-1. **子网标记问题**
+1. **Subnet Tagging Issues**
    ```bash
-   # 检查子网标签
+   # Check subnet tags
    aws ec2 describe-subnets --subnet-ids <subnet-id>
    ```
 
-2. **网络连接问题**
+2. **Network Connection Issues**
    ```bash
-   # 检查安全组配置
+   # Check security group configuration
    aws ec2 describe-security-groups --filters "Name=vpc-id,Values=<vpc-id>"
    ```
 
-3. **DNS解析问题**
+3. **DNS Resolution Issues**
    ```bash
-   # 检查Route53私有区域
+   # Check Route53 private zones
    aws route53 list-hosted-zones
    ```
 
-### 调试命令
+### Debug Commands
 
 ```bash
-# 检查集群状态
+# Check cluster status
 oc get nodes
 oc get clusteroperators
 
-# 检查网络配置
+# Check network configuration
 oc get network.config/cluster -o yaml
 
-# 检查路由
+# Check routes
 oc get routes -A
 ```
 
-## 依赖工具
+## Required Tools
 
 - AWS CLI
 - OpenShift CLI (oc)
 - OpenShift Installer (openshift-install)
-- jq (JSON处理)
-- curl (网络测试)
+- jq (JSON processing)
+- curl (network testing)
 
-## 注意事项
+## Notes
 
-1. **凭证传输**: 必须将pull-secret和AWS凭证传输到bastion主机
-2. **代理设置**: 如果在企业网络环境中，可能需要设置HTTP代理
-3. **资源清理**: 测试完成后务必清理AWS资源以避免费用
-4. **权限要求**: 需要足够的AWS权限创建和管理资源
-5. **网络配置**: 确保VPC配置符合企业网络策略
+1. **Credential Transfer**: Must transfer pull-secret and AWS credentials to bastion host
+2. **Proxy Settings**: HTTP proxy may be required in enterprise network environments
+3. **Resource Cleanup**: Always clean up AWS resources after testing to avoid charges
+4. **Permission Requirements**: Need sufficient AWS permissions to create and manage resources
+5. **Network Configuration**: Ensure VPC configuration complies with enterprise network policies
 
-## 相关文档
+## Related Documentation
 
-- [OpenShift IPI安装文档](https://docs.openshift.com/container-platform/latest/installing/installing_aws/installing-aws-private.html)
-- [AWS VPC配置指南](https://docs.aws.amazon.com/vpc/latest/userguide/)
-- [OpenShift网络配置](https://docs.openshift.com/container-platform/latest/networking/understanding-networking.html)
+- [OpenShift IPI Installation Documentation](https://docs.openshift.com/container-platform/latest/installing/installing_aws/installing-aws-private.html)
+- [AWS VPC Configuration Guide](https://docs.aws.amazon.com/vpc/latest/userguide/)
+- [OpenShift Network Configuration](https://docs.openshift.com/container-platform/latest/networking/understanding-networking.html)

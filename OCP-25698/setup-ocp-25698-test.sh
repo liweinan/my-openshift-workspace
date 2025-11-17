@@ -115,8 +115,8 @@ print_info "Step 2: Getting VPC outputs and generating install-config templates.
 VPC_OUTPUTS=$(../tools/get-vpc-outputs.sh "${STACK_NAME}" "${REGION}")
 
 # Extract subnet IDs from the output
-PUBLIC_SUBNETS=$(echo "${VPC_OUTPUTS}" | grep -A 10 "公有群集配置" | grep "id:" | sed 's/.*id: //' | tr '\n' ' ')
-PRIVATE_SUBNETS=$(echo "${VPC_OUTPUTS}" | grep -A 10 "公有群集配置" | grep "id:" | tail -n +5 | sed 's/.*id: //' | tr '\n' ' ')
+PUBLIC_SUBNETS=$(echo "${VPC_OUTPUTS}" | grep -A 10 "Public cluster configuration" | grep "id:" | sed 's/.*id: //' | tr '\n' ' ')
+PRIVATE_SUBNETS=$(echo "${VPC_OUTPUTS}" | grep -A 10 "Public cluster configuration" | grep "id:" | tail -n +5 | sed 's/.*id: //' | tr '\n' ' ')
 
 # Create install-config template for cluster A
 cat > install-config-cluster-a.yaml << EOF

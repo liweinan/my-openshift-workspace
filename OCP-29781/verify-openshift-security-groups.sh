@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# OpenShift 4.x 安全组验证脚本
-# 验证安全组配置是否符合网络隔离要求
+# OpenShift 4.x Security Group Verification Script
+# Verify security group configuration meets network isolation requirements
 
 set -euo pipefail
 
@@ -11,7 +11,7 @@ CLUSTER2_INFRA_ID="weli-test-b-2vgnm"
 CLUSTER1_MACHINE_CIDR="10.134.0.0/16"
 CLUSTER2_MACHINE_CIDR="10.190.0.0/16"
 
-# 颜色输出
+# Color output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -28,11 +28,11 @@ verify_cluster_security_groups() {
     local infra_id=$2
     local machine_cidr=$3
     
-    log_info "=== 验证 ${cluster_name} (${infra_id}) ==="
+    log_info "=== Verifying ${cluster_name} (${infra_id}) ==="
     log_info "Machine CIDR: ${machine_cidr}"
     echo
     
-    # 获取所有安全组
+    # Get all security groups
     local all_sgs
     all_sgs=$(aws ec2 describe-instances \
         --region "${AWS_REGION}" \
@@ -40,10 +40,10 @@ verify_cluster_security_groups() {
         --query 'Reservations[].Instances[].SecurityGroups[].GroupId' \
         --output text | tr '\t' '\n' | sort | uniq)
     
-    log_info "集群安全组: ${all_sgs}"
+    log_info "Cluster security groups: ${all_sgs}"
     echo
     
-    # 分析安全组架构
+    # Analyze security group architecture
     analyze_security_group_architecture "${all_sgs}" "${infra_id}" "${machine_cidr}"
     echo
 }
@@ -53,13 +53,13 @@ analyze_security_group_architecture() {
     local infra_id=$2
     local machine_cidr=$3
     
-    log_info "分析安全组架构..."
+    log_info "Analyzing security group architecture..."
     
-    # 获取所有相关安全组（包括引用的安全组）
+    # Get all related security groups (including referenced ones)
     local all_related_sgs="${sg_list}"
     
     for sg_id in $sg_list; do
-        # 获取这个安全组引用的其他安全组
+        # Get other security groups referenced by this security group
         local referenced_sgs
         referenced_sgs=$(aws ec2 describe-security-groups \
             --region "${AWS_REGION}" \
@@ -72,13 +72,13 @@ analyze_security_group_architecture() {
         fi
     done
     
-    # 去重
+    # Remove duplicates
     all_related_sgs=$(echo "${all_related_sgs}" | tr ' ' '\n' | sort | uniq)
     
-    log_info "所有相关安全组: ${all_related_sgs}"
+    log_info "All related security groups: ${all_related_sgs}"
     echo
     
-    # 分析每个安全组
+    # Analyze each security group
     for sg_id in $all_related_sgs; do
         analyze_single_security_group "${sg_id}" "${infra_id}" "${machine_cidr}"
     done
@@ -89,9 +89,9 @@ analyze_single_security_group() {
     local infra_id=$2
     local machine_cidr=$3
     
-    log_info "分析安全组: ${sg_id}"
+    log_info "Analyzing security group: ${sg_id}"
     
-    # 获取安全组信息
+    # Get security group information
     local sg_info
     sg_info=$(aws ec2 describe-security-groups \
         --region "${AWS_REGION}" \
@@ -103,15 +103,15 @@ analyze_single_security_group() {
     local sg_description
     sg_description=$(echo "${sg_info}" | jq -r '.SecurityGroups[0].Description')
     
-    log_info "名称: ${sg_name}"
-    log_info "描述: ${sg_description}"
+    log_info "Name: ${sg_name}"
+    log_info "Description: ${sg_description}"
     
-    # 检查是否属于当前集群
+    # Check if it belongs to current cluster
     if [[ "${sg_name}" == *"${infra_id}"* ]]; then
-        log_info "类型: 集群内部安全组"
+        log_info "Type: Cluster internal security group"
         analyze_cluster_internal_sg "${sg_info}" "${machine_cidr}"
     else
-        log_info "类型: 外部引用安全组"
+        log_info "Type: External referenced security group"
     fi
     
     echo "----------------------------------------"
@@ -121,11 +121,11 @@ analyze_cluster_internal_sg() {
     local sg_info=$1
     local machine_cidr=$2
     
-    # 获取所有入站规则
+    # Get all inbound rules
     local ingress_rules
     ingress_rules=$(echo "${sg_info}" | jq -r '.SecurityGroups[0].IpPermissions[]')
     
-    # 检查是否有CIDR规则
+    # Check if there are CIDR rules
     local has_cidr_rules=false
     local cidr_rules=""
     
@@ -139,71 +139,71 @@ analyze_cluster_internal_sg() {
     done <<< "${ingress_rules}"
     
     if [[ "${has_cidr_rules}" == "true" ]]; then
-        log_info "CIDR规则:"
+        log_info "CIDR rules:"
         echo -e "${cidr_rules}" | while read -r cidr; do
             if [[ -n "${cidr}" ]]; then
                 if [[ "${cidr}" == "${machine_cidr}" ]]; then
-                    log_success "  ✅ ${cidr} (匹配machine CIDR)"
+                    log_success "  ✅ ${cidr} (matches machine CIDR)"
                 else
-                    log_warning "  ⚠️  ${cidr} (不匹配machine CIDR)"
+                    log_warning "  ⚠️  ${cidr} (does not match machine CIDR)"
                 fi
             fi
         done
     else
-        log_info "使用安全组引用而非CIDR规则 (OpenShift 4.x标准做法)"
+        log_info "Uses security group references instead of CIDR rules (OpenShift 4.x standard practice)"
     fi
     
-    # 检查关键端口
+    # Check key ports
     check_key_ports "${sg_info}"
 }
 
 check_key_ports() {
     local sg_info=$1
     
-    log_info "关键端口检查:"
+    log_info "Key port check:"
     
-    # 检查6443端口
+    # Check port 6443
     local port_6443
     port_6443=$(echo "${sg_info}" | jq -r '.SecurityGroups[0].IpPermissions[] | select(.FromPort == 6443 and .ToPort == 6443)')
     if [[ -n "${port_6443}" ]]; then
-        log_success "  ✅ 6443/tcp (API Server) - 已配置"
+        log_success "  ✅ 6443/tcp (API Server) - configured"
     else
-        log_warning "  ⚠️  6443/tcp (API Server) - 未找到"
+        log_warning "  ⚠️  6443/tcp (API Server) - not found"
     fi
     
-    # 检查22623端口
+    # Check port 22623
     local port_22623
     port_22623=$(echo "${sg_info}" | jq -r '.SecurityGroups[0].IpPermissions[] | select(.FromPort == 22623 and .ToPort == 22623)')
     if [[ -n "${port_22623}" ]]; then
-        log_success "  ✅ 22623/tcp (Machine Config Server) - 已配置"
+        log_success "  ✅ 22623/tcp (Machine Config Server) - configured"
     else
-        log_warning "  ⚠️  22623/tcp (Machine Config Server) - 未找到"
+        log_warning "  ⚠️  22623/tcp (Machine Config Server) - not found"
     fi
     
-    # 检查22端口
+    # Check port 22
     local port_22
     port_22=$(echo "${sg_info}" | jq -r '.SecurityGroups[0].IpPermissions[] | select(.FromPort == 22 and .ToPort == 22)')
     if [[ -n "${port_22}" ]]; then
-        log_success "  ✅ 22/tcp (SSH) - 已配置"
+        log_success "  ✅ 22/tcp (SSH) - configured"
     else
-        log_warning "  ⚠️  22/tcp (SSH) - 未找到"
+        log_warning "  ⚠️  22/tcp (SSH) - not found"
     fi
     
-    # 检查ICMP
+    # Check ICMP
     local icmp
     icmp=$(echo "${sg_info}" | jq -r '.SecurityGroups[0].IpPermissions[] | select(.IpProtocol == "icmp")')
     if [[ -n "${icmp}" ]]; then
-        log_success "  ✅ ICMP - 已配置"
+        log_success "  ✅ ICMP - configured"
     else
-        log_warning "  ⚠️  ICMP - 未找到"
+        log_warning "  ⚠️  ICMP - not found"
     fi
 }
 
-# 验证网络隔离
+# Verify network isolation
 verify_network_isolation() {
-    log_info "=== 验证网络隔离 ==="
+    log_info "=== Verifying Network Isolation ==="
     
-    # 获取两个集群的所有安全组
+    # Get all security groups for both clusters
     local cluster1_sgs
     cluster1_sgs=$(aws ec2 describe-instances \
         --region "${AWS_REGION}" \
@@ -218,41 +218,41 @@ verify_network_isolation() {
         --query 'Reservations[].Instances[].SecurityGroups[].GroupId' \
         --output text | tr '\t' '\n' | sort | uniq)
     
-    log_info "集群1安全组: ${cluster1_sgs}"
-    log_info "集群2安全组: ${cluster2_sgs}"
+    log_info "Cluster 1 security groups: ${cluster1_sgs}"
+    log_info "Cluster 2 security groups: ${cluster2_sgs}"
     
-    # 检查是否有交叉引用
+    # Check for cross-references
     local has_cross_reference=false
     for sg1 in $cluster1_sgs; do
         for sg2 in $cluster2_sgs; do
             if [[ "${sg1}" == "${sg2}" ]]; then
                 has_cross_reference=true
-                log_error "发现共享安全组: ${sg1}"
+                log_error "Found shared security group: ${sg1}"
             fi
         done
     done
     
     if [[ "${has_cross_reference}" == "false" ]]; then
-        log_success "✅ 两个集群使用独立的安全组，网络隔离正确"
+        log_success "✅ Both clusters use independent security groups, network isolation is correct"
     else
-        log_error "❌ 发现共享安全组，网络隔离可能有问题"
+        log_error "❌ Found shared security groups, network isolation may have issues"
     fi
 }
 
-# 主函数
+# Main function
 main() {
-    log_info "开始OpenShift 4.x安全组验证"
+    log_info "Starting OpenShift 4.x security group verification"
     echo "=========================================="
     
-    verify_cluster_security_groups "集群1" "${CLUSTER1_INFRA_ID}" "${CLUSTER1_MACHINE_CIDR}"
-    verify_cluster_security_groups "集群2" "${CLUSTER2_INFRA_ID}" "${CLUSTER2_MACHINE_CIDR}"
+    verify_cluster_security_groups "Cluster 1" "${CLUSTER1_INFRA_ID}" "${CLUSTER1_MACHINE_CIDR}"
+    verify_cluster_security_groups "Cluster 2" "${CLUSTER2_INFRA_ID}" "${CLUSTER2_MACHINE_CIDR}"
     
     verify_network_isolation
     
-    log_success "安全组验证完成！"
+    log_success "Security group verification completed!"
     echo
-    log_info "OpenShift 4.x使用安全组引用而非CIDR规则是正常的安全实践"
-    log_info "网络隔离通过独立的安全组实现"
+    log_info "OpenShift 4.x using security group references instead of CIDR rules is normal security practice"
+    log_info "Network isolation is achieved through independent security groups"
 }
 
 main "$@"

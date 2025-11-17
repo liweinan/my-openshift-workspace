@@ -17,7 +17,7 @@ echo "- Key Pair: $KEY_NAME"
 echo "- VPC and all associated resources"
 echo ""
 
-# 确认删除
+# Confirm deletion
 read -p "Are you sure you want to delete these resources? (y/n): " -n 1 -r
 echo ""
 
@@ -29,7 +29,7 @@ fi
 echo "Starting cleanup process..."
 echo ""
 
-# 1. 删除EC2实例
+# 1. Delete EC2 instance
 echo "1. Deleting EC2 instance..."
 INSTANCE_ID=$(aws ec2 describe-instances \
   --filters "Name=tag:Name,Values=$INSTANCE_NAME" \
@@ -65,7 +65,7 @@ else
     echo "No instance found with name: $INSTANCE_NAME"
 fi
 
-# 2. 删除安全组
+# 2. Delete security group
 echo ""
 echo "2. Deleting security group..."
 SECURITY_GROUP_ID=$(aws ec2 describe-security-groups \
@@ -120,7 +120,7 @@ else
     echo "No security group found with name: $SECURITY_GROUP_NAME"
 fi
 
-# 3. 删除密钥对
+# 3. Delete key pair
 echo ""
 echo "3. Deleting key pair..."
 if aws ec2 describe-key-pairs --key-names "$KEY_NAME" --region "$REGION" >/dev/null 2>&1; then
@@ -142,7 +142,7 @@ else
     echo "No key pair found with name: $KEY_NAME"
 fi
 
-# 4. 删除VPC相关资源
+# 4. Delete VPC related resources
 echo ""
 echo "4. Deleting VPC and associated resources..."
 VPC_ID=$(aws ec2 describe-vpcs \

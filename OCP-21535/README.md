@@ -1,109 +1,109 @@
-t pus# RHEL Infrastructure Deployment
+# RHEL Infrastructure Deployment
 
-这个项目使用AWS CloudFormation自动化部署RHEL 8.10基础设施，包括VPC、安全组、子网和EC2实例。
+This project automates the deployment of RHEL 8.10 infrastructure using AWS CloudFormation, including VPC, security groups, subnets, and EC2 instances.
 
-## 项目结构
+## Project Structure
 
 ```
 OCP-21535/
-├── deploy-cloudformation.sh      # 主要部署脚本
-├── ssh-connect.sh               # SSH连接脚本
-├── rhel-infrastructure.yaml     # CloudFormation模板
-├── cleanup-cloudformation.sh    # 清理脚本
-├── create-key.sh               # 密钥对创建脚本
-├── create-security-group.sh    # 安全组创建脚本
-├── run-instance.sh             # 实例运行脚本
-├── register-rhel.sh            # RHEL注册脚本
-├── quick-rhel-setup.sh         # 快速RHEL设置脚本（订阅管理、仓库配置、工具安装）
-├── check-username.sh           # 用户名检查脚本
-├── simple-cleanup.sh           # 简单清理脚本
-└── README.md                   # 项目文档
+├── deploy-cloudformation.sh      # Main deployment script
+├── ssh-connect.sh               # SSH connection script
+├── rhel-infrastructure.yaml     # CloudFormation template
+├── cleanup-cloudformation.sh    # Cleanup script
+├── create-key.sh               # Key pair creation script
+├── create-security-group.sh    # Security group creation script
+├── run-instance.sh             # Instance running script
+├── register-rhel.sh            # RHEL registration script
+├── quick-rhel-setup.sh         # Quick RHEL setup script (subscription management, repository configuration, tool installation)
+├── check-username.sh           # Username checking script
+├── simple-cleanup.sh           # Simple cleanup script
+└── README.md                   # Project documentation
 ```
 
-## 功能特性
+## Features
 
-- **自动化部署**: 一键部署完整的RHEL基础设施
-- **密钥对管理**: 自动处理密钥对的创建、删除和更新
-- **网络配置**: 自动创建VPC、子网、路由表和互联网网关
-- **安全组**: 预配置SSH、HTTP、HTTPS和ICMP访问规则
-- **实例配置**: 使用最新的RHEL 8.10 AMI
-- **错误处理**: 完善的错误处理和回滚机制
+- **Automated Deployment**: One-click deployment of complete RHEL infrastructure
+- **Key Pair Management**: Automatic handling of key pair creation, deletion, and updates
+- **Network Configuration**: Automatic creation of VPC, subnets, route tables, and internet gateways
+- **Security Groups**: Pre-configured SSH, HTTP, HTTPS, and ICMP access rules
+- **Instance Configuration**: Uses latest RHEL 8.10 AMI
+- **Error Handling**: Comprehensive error handling and rollback mechanisms
 
-## 系统要求
+## System Requirements
 
-- AWS CLI已安装并配置
-- 适当的AWS权限（EC2、CloudFormation、VPC等）
-- Bash shell环境
+- AWS CLI installed and configured
+- Appropriate AWS permissions (EC2, CloudFormation, VPC, etc.)
+- Bash shell environment
 
-## 快速开始
+## Quick Start
 
-### 1. 部署基础设施
+### 1. Deploy Infrastructure
 
 ```bash
 ./deploy-cloudformation.sh
 ```
 
-这个脚本会：
-- 验证CloudFormation模板
-- 清理现有的密钥对和堆栈
-- 创建新的密钥对
-- 部署CloudFormation堆栈
-- 提供连接信息
+This script will:
+- Validate CloudFormation template
+- Clean up existing key pairs and stacks
+- Create new key pair
+- Deploy CloudFormation stack
+- Provide connection information
 
-### 2. 连接到RHEL实例
+### 2. Connect to RHEL Instance
 
 ```bash
-# 使用SSH连接脚本
+# Use SSH connection script
 ./ssh-connect.sh
 
-# 或直接使用SSH命令
+# Or use SSH command directly
 ssh -i weli-rhel-key.pem ec2-user@<PUBLIC_IP>
 ```
 
-### 3. 配置RHEL系统
+### 3. Configure RHEL System
 
-连接到实例后，运行快速设置脚本：
+After connecting to the instance, run the quick setup script:
 
 ```bash
-# 在RHEL实例上运行
+# Run on RHEL instance
 sudo ./quick-rhel-setup.sh
 ```
 
-这个脚本会：
-- 检查Red Hat订阅状态
-- 配置软件仓库（包括EPEL）
-- 安装常用工具（vim, wget, curl, git, htop）
-- 更新系统包
+This script will:
+- Check Red Hat subscription status
+- Configure software repositories (including EPEL)
+- Install common tools (vim, wget, curl, git, htop)
+- Update system packages
 
-### 4. 清理资源
+### 4. Cleanup Resources
 
 ```bash
-# 删除CloudFormation堆栈
+# Delete CloudFormation stack
 ./cleanup-cloudformation.sh
 
-# 或使用简单清理脚本
+# Or use simple cleanup script
 ./simple-cleanup.sh
 ```
 
-## 配置参数
+## Configuration Parameters
 
-### CloudFormation参数
+### CloudFormation Parameters
 
-| 参数 | 默认值 | 描述 |
-|------|--------|------|
-| KeyPairName | weli-rhel-key | EC2密钥对名称 |
-| InstanceType | m5.xlarge | EC2实例类型 |
+| Parameter | Default Value | Description |
+|----------|---------------|-------------|
+| KeyPairName | weli-rhel-key | EC2 key pair name |
+| InstanceType | m5.xlarge | EC2 instance type |
 | RHELImageId | ami-07cf28d58cb5c8f73 | RHEL 8.10 AMI ID |
-| VpcCidr | 10.0.0.0/16 | VPC CIDR块 |
-| SubnetCidr | 10.0.1.0/24 | 子网 CIDR块 |
+| VpcCidr | 10.0.0.0/16 | VPC CIDR block |
+| SubnetCidr | 10.0.1.0/24 | Subnet CIDR block |
 
-### 支持的实例类型
+### Supported Instance Types
 
 - t3.micro, t3.small, t3.medium, t3.large
 - m5.large, m5.xlarge, m5.2xlarge
 - c5.large, c5.xlarge
 
-## 网络架构
+## Network Architecture
 
 ```
 Internet Gateway
@@ -121,103 +121,103 @@ Internet Gateway
    └── ICMP - 0.0.0.0/0
 ```
 
-## 安全组规则
+## Security Group Rules
 
-| 类型 | 协议 | 端口 | 源 | 描述 |
-|------|------|------|-----|------|
-| SSH | TCP | 22 | 0.0.0.0/0 | SSH访问 |
-| HTTP | TCP | 80 | 0.0.0.0/0 | HTTP访问 |
-| HTTPS | TCP | 443 | 0.0.0.0/0 | HTTPS访问 |
-| ICMP | ICMP | -1 | 0.0.0.0/0 | Ping测试 |
+| Type | Protocol | Port | Source | Description |
+|------|----------|------|--------|-------------|
+| SSH | TCP | 22 | 0.0.0.0/0 | SSH access |
+| HTTP | TCP | 80 | 0.0.0.0/0 | HTTP access |
+| HTTPS | TCP | 443 | 0.0.0.0/0 | HTTPS access |
+| ICMP | ICMP | -1 | 0.0.0.0/0 | Ping test |
 
-## 故障排除
+## Troubleshooting
 
-### 常见问题
+### Common Issues
 
-1. **密钥对冲突**
-   - 脚本会自动处理密钥对的删除和重新创建
-   - 如果仍有问题，手动删除AWS中的密钥对
+1. **Key Pair Conflict**
+   - Script automatically handles key pair deletion and recreation
+   - If issues persist, manually delete key pairs in AWS
 
-2. **SSH连接失败**
-   - 检查安全组是否允许SSH访问
-   - 确认实例状态为"running"
-   - 验证密钥文件权限 (chmod 400)
+2. **SSH Connection Failed**
+   - Check if security group allows SSH access
+   - Confirm instance status is "running"
+   - Verify key file permissions (chmod 400)
 
-3. **堆栈创建失败**
-   - 检查AWS权限
-   - 查看CloudFormation事件日志
-   - 确认AMI ID在目标区域可用
+3. **Stack Creation Failed**
+   - Check AWS permissions
+   - View CloudFormation event logs
+   - Confirm AMI ID is available in target region
 
-4. **RHEL设置问题**
-   - 如果仓库被禁用，检查Red Hat订阅状态
-   - 使用 `subscription-manager status` 检查订阅
-   - 如果htop安装失败，手动安装EPEL: `sudo dnf install -y epel-release`
-   - 对于未注册系统，使用 `sudo dnf install --enablerepo=*` 临时启用仓库
+4. **RHEL Setup Issues**
+   - If repositories are disabled, check Red Hat subscription status
+   - Use `subscription-manager status` to check subscription
+   - If htop installation fails, manually install EPEL: `sudo dnf install -y epel-release`
+   - For unregistered systems, use `sudo dnf install --enablerepo=*` to temporarily enable repositories
 
-### 日志查看
+### Log Viewing
 
 ```bash
-# 查看CloudFormation事件
+# View CloudFormation events
 aws cloudformation describe-stack-events --stack-name weli-rhel-stack --region us-east-1
 
-# 查看实例系统日志
+# View instance system logs
 aws ec2 get-console-output --instance-id <INSTANCE_ID> --region us-east-1
 ```
 
-## 脚本说明
+## Script Descriptions
 
 ### deploy-cloudformation.sh
-主要部署脚本，包含完整的部署流程：
-- 模板验证
-- 密钥对管理
-- 堆栈创建/更新
-- 输出信息显示
+Main deployment script containing complete deployment workflow:
+- Template validation
+- Key pair management
+- Stack creation/update
+- Output information display
 
 ### ssh-connect.sh
-SSH连接脚本，自动获取实例IP并建立连接。
+SSH connection script that automatically gets instance IP and establishes connection.
 
 ### quick-rhel-setup.sh
-RHEL系统快速配置脚本，提供完整的系统设置流程：
+RHEL system quick configuration script providing complete system setup workflow:
 
-**功能特性：**
-- **订阅管理**: 检查Red Hat订阅状态，支持多种注册方式
-- **仓库配置**: 启用RHEL官方仓库和EPEL仓库
-- **工具安装**: 自动安装常用开发和管理工具
-- **系统更新**: 更新系统包到最新版本
+**Features:**
+- **Subscription Management**: Check Red Hat subscription status, support multiple registration methods
+- **Repository Configuration**: Enable RHEL official repositories and EPEL repository
+- **Tool Installation**: Automatically install common development and management tools
+- **System Update**: Update system packages to latest versions
 
-**支持的注册方式：**
-- Red Hat账户注册（用户名/密码）
-- 激活密钥注册
-- 跳过注册（仅限测试环境）
+**Supported Registration Methods:**
+- Red Hat account registration (username/password)
+- Activation key registration
+- Skip registration (test environments only)
 
-**安装的软件包：**
-- 基础工具: `vim`, `wget`, `curl`, `git`
-- 系统监控: `htop` (来自EPEL仓库)
-- 系统更新: 所有可用更新
+**Installed Packages:**
+- Basic tools: `vim`, `wget`, `curl`, `git`
+- System monitoring: `htop` (from EPEL repository)
+- System updates: All available updates
 
-**使用方法：**
+**Usage:**
 ```bash
-# 在RHEL实例上运行
+# Run on RHEL instance
 sudo ./quick-rhel-setup.sh
 ```
 
 ### cleanup-cloudformation.sh
-清理脚本，删除CloudFormation堆栈和相关资源。
+Cleanup script that deletes CloudFormation stack and related resources.
 
-## 版本信息
+## Version Information
 
-- **RHEL版本**: 8.10 (Ootpa)
+- **RHEL Version**: 8.10 (Ootpa)
 - **AMI ID**: ami-07cf28d58cb5c8f73
-- **默认实例类型**: m5.xlarge
-- **默认用户**: ec2-user
+- **Default Instance Type**: m5.xlarge
+- **Default User**: ec2-user
 
-## 注意事项
+## Notes
 
-1. 部署前确保AWS CLI已正确配置
-2. 实例启动后需要几分钟时间完成初始化
-3. 密钥文件 `weli-rhel-key.pem` 需要保持安全，不要提交到版本控制
-4. 生产环境建议使用更严格的网络访问控制
+1. Ensure AWS CLI is properly configured before deployment
+2. Instance initialization takes a few minutes after startup
+3. Keep key file `weli-rhel-key.pem` secure, do not commit to version control
+4. Production environments should use stricter network access controls
 
-## 许可证
+## License
 
-本项目遵循MIT许可证。
+This project follows the MIT license.

@@ -1,10 +1,10 @@
 # OCP-80182 - Install a cluster in a VPC with only public subnets provided
 
-## 测试用例描述
+## Test Case Description
 
 **OCP-80182**: [ipi-on-aws] Install a cluster in a vpc with only public subnets provided
 
-### 测试步骤
+### Test Steps
 
 1. **Step 1**: Create a VPC with only public subnets created, no private subnets, NAT and related resources, also enable the VPC option of allowing instances to associate with public IP automatically.
 
@@ -23,47 +23,47 @@
 
 4. **Step 4**: Run installer to create the cluster.
 
-### 预期结果
+### Expected Result
 
 The installation get completed successfully.
 
-## 测试环境要求
+## Test Environment Requirements
 
-- AWS CLI 配置完成
-- OpenShift Installer 工具
-- 足够的AWS权限创建VPC、子网、EC2实例等资源
+- AWS CLI configured
+- OpenShift Installer tool
+- Sufficient AWS permissions to create VPC, subnets, EC2 instances and other resources
 
-## 快速开始
+## Quick Start
 
-### 1. 使用预创建的VPC模板
+### 1. Use Pre-created VPC Template
 
 ```bash
-# 进入测试目录
+# Enter test directory
 cd /Users/weli/works/oc-swarm/my-openshift-workspace/OCP-80182
 
-# 运行测试脚本
+# Run test script
 ./run-ocp-80182-test.sh
 ```
 
-### 2. 手动执行步骤
+### 2. Manual Execution Steps
 
 ```bash
-# 1. 创建VPC和公共子网
+# 1. Create VPC and public subnets
 ../tools/create-vpc-stack.sh \
   --stack-name ocp-80182-vpc \
   --template-file ../tools/vpc-template-public-only.yaml \
   --az-count 3
 
-# 2. 获取子网ID
+# 2. Get subnet IDs
 SUBNET_IDS=$(aws cloudformation describe-stacks \
   --stack-name ocp-80182-vpc \
   --query 'Stacks[0].Outputs[?OutputKey==`PublicSubnetIds`].OutputValue' \
   --output text)
 
-# 3. 设置环境变量
+# 3. Set environment variable
 export OPENSHIFT_INSTALL_AWS_PUBLIC_ONLY=true
 
-# 4. 创建install-config.yaml
+# 4. Create install-config.yaml
 cat > install-config.yaml << EOF
 apiVersion: v1
 baseDomain: example.com
@@ -79,58 +79,58 @@ sshKey: |
   ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC...
 EOF
 
-# 5. 运行安装
+# 5. Run installation
 openshift-install create cluster
 ```
 
-## 验证步骤
+## Verification Steps
 
-### 1. 验证VPC配置
+### 1. Verify VPC Configuration
 
 ```bash
-# 检查只有公共子网
+# Check only public subnets
 aws ec2 describe-subnets \
   --filters "Name=vpc-id,Values=$(aws cloudformation describe-stacks --stack-name ocp-80182-vpc --query 'Stacks[0].Outputs[?OutputKey==`VpcId`].OutputValue' --output text)" \
   --query 'Subnets[*].[SubnetId,MapPublicIpOnLaunch]' \
   --output table
 
-# 检查无NAT网关
+# Check no NAT gateways
 aws ec2 describe-nat-gateways \
   --filter "Name=vpc-id,Values=$(aws cloudformation describe-stacks --stack-name ocp-80182-vpc --query 'Stacks[0].Outputs[?OutputKey==`VpcId`].OutputValue' --output text)" \
   --query 'NatGateways[*].[NatGatewayId,State]' \
   --output table
 ```
 
-### 2. 验证集群安装
+### 2. Verify Cluster Installation
 
 ```bash
-# 检查集群状态
+# Check cluster status
 export KUBECONFIG=auth/kubeconfig
 oc get nodes
 oc get clusteroperators
 ```
 
-## 清理资源
+## Cleanup Resources
 
 ```bash
-# 删除OpenShift集群
+# Delete OpenShift cluster
 openshift-install destroy cluster
 
-# 删除VPC
+# Delete VPC
 aws cloudformation delete-stack --stack-name ocp-80182-vpc
 aws cloudformation wait stack-delete-complete --stack-name ocp-80182-vpc
 ```
 
-## 相关文件
+## Related Files
 
-- `run-ocp-80182-test.sh` - 自动化测试脚本
-- `verify-vpc-config.sh` - VPC配置验证脚本
-- `install-config-template.yaml` - install-config.yaml模板
-- `cleanup.sh` - 清理脚本
+- `run-ocp-80182-test.sh` - Automated test script
+- `verify-vpc-config.sh` - VPC configuration verification script
+- `install-config-template.yaml` - install-config.yaml template
+- `cleanup.sh` - Cleanup script
 
-## 注意事项
+## Notes
 
-1. 确保VPC模板中的子网都设置了`MapPublicIpOnLaunch: true`
-2. 不要创建私有子网和NAT网关
-3. 确保所有子网都有到Internet Gateway的路由
-4. 测试完成后及时清理资源以避免费用
+1. Ensure subnets in VPC template have `MapPublicIpOnLaunch: true` set
+2. Do not create private subnets and NAT gateways
+3. Ensure all subnets have routes to Internet Gateway
+4. Clean up resources promptly after testing to avoid charges

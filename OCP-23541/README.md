@@ -1,18 +1,18 @@
 # OCP-23541 - [ipi-on-aws] [Hyperthreading] Create cluster with hyperthreading disabled on worker and master nodes
 
-## 测试概述
+## Test Overview
 
-这个测试用例验证在AWS上创建OpenShift集群时禁用超线程功能的能力。测试确保：
+This test case validates the ability to create an OpenShift cluster on AWS with hyperthreading disabled. The test ensures:
 
-1. 集群安装时正确配置超线程禁用
-2. 所有节点（master和worker）的超线程都被禁用
-3. MachineConfigPool正确应用超线程禁用配置
-4. 节点CPU信息显示超线程已禁用
+1. Hyperthreading is correctly configured during cluster installation
+2. All nodes (master and worker) have hyperthreading disabled
+3. MachineConfigPool correctly applies hyperthreading disable configuration
+4. Node CPU information shows hyperthreading is disabled
 
-## 测试步骤
+## Test Steps
 
-### 步骤1: 创建install-config.yaml并禁用超线程
-创建安装配置文件，在install-config.yaml中禁用超线程：
+### Step 1: Create install-config.yaml and disable hyperthreading
+Create the installation configuration file with hyperthreading disabled in install-config.yaml:
 ```yaml
 compute:
 - hyperthreading: Disabled
@@ -30,58 +30,58 @@ controlPlane:
   replicas: 3
 ```
 
-### 步骤2: 安装集群
-使用修改后的install-config.yaml安装集群：
+### Step 2: Install cluster
+Install the cluster using the modified install-config.yaml:
 ```bash
 ./openshift-install create cluster --dir test
 ```
 
-**预期结果：** 集群创建成功
+**Expected Result:** Cluster creation successful
 
-### 步骤3: 验证超线程禁用状态
-检查所有节点的超线程状态：
+### Step 3: Verify hyperthreading disable status
+Check hyperthreading status on all nodes:
 ```bash
-# 检查节点状态
+# Check node status
 oc get nodes
 
-# 验证每个节点的CPU信息
+# Verify CPU information for each node
 oc debug node/<node-name> -- chroot /host cat /proc/cpuinfo
 ```
 
-**预期结果：**
-- `siblings` 值等于 `cpu cores` 值
-- 例如：`siblings: 4` 和 `cpu cores: 4` 表示超线程已禁用
+**Expected Results:**
+- `siblings` value equals `cpu cores` value
+- Example: `siblings: 4` and `cpu cores: 4` indicates hyperthreading is disabled
 
-### 步骤4: 验证MachineConfigPool
-检查MachineConfigPool状态和配置：
+### Step 4: Verify MachineConfigPool
+Check MachineConfigPool status and configuration:
 ```bash
 oc get machineconfigpools
 oc describe machineconfigpools
 ```
 
-**预期结果：**
-- MachineConfigPool状态为Updated
-- 配置中包含 `99-master-disable-hyperthreading` 和 `99-worker-disable-hyperthreading`
+**Expected Results:**
+- MachineConfigPool status is Updated
+- Configuration includes `99-master-disable-hyperthreading` and `99-worker-disable-hyperthreading`
 
-## 自动化脚本
+## Automation Scripts
 
 ### setup-ocp-23541-test.sh
 
-这个脚本自动化了测试的完整流程：
+This script automates the complete test flow:
 
-#### 功能
-- 生成带有超线程禁用配置的install-config.yaml
-- 自动安装OpenShift集群
-- 验证所有节点的超线程禁用状态
-- 检查MachineConfigPool配置
-- 提供详细的测试结果报告
+#### Features
+- Generates install-config.yaml with hyperthreading disable configuration
+- Automatically installs OpenShift cluster
+- Verifies hyperthreading disable status on all nodes
+- Checks MachineConfigPool configuration
+- Provides detailed test result report
 
-#### 使用方法
+#### Usage
 ```bash
-# 基本用法（使用默认参数）
+# Basic usage (with default parameters)
 ./setup-ocp-23541-test.sh
 
-# 自定义参数
+# Custom parameters
 ./setup-ocp-23541-test.sh \
   --region us-west-2 \
   --cluster-name my-hyperthreading-test \
@@ -89,221 +89,221 @@ oc describe machineconfigpools
   --worker-count 3 \
   --master-count 3
 
-# 仅生成配置文件（跳过安装）
+# Generate config only (skip installation)
 ./setup-ocp-23541-test.sh --skip-install
 ```
 
-#### 参数说明
-- `-r, --region`: AWS区域（默认：us-east-2）
-- `-n, --cluster-name`: 集群名称（默认：hyperthreading-test）
-- `-i, --instance-type`: 实例类型（默认：m6i.xlarge）
-- `-w, --worker-count`: 工作节点数量（默认：3）
-- `-m, --master-count`: 主节点数量（默认：3）
-- `-d, --dir`: 安装目录（默认：test）
-- `--skip-install`: 跳过集群安装，仅生成配置文件
-- `-h, --help`: 显示帮助信息
+#### Parameters
+- `-r, --region`: AWS region (default: us-east-2)
+- `-n, --cluster-name`: Cluster name (default: hyperthreading-test)
+- `-i, --instance-type`: Instance type (default: m6i.xlarge)
+- `-w, --worker-count`: Worker node count (default: 3)
+- `-m, --master-count`: Master node count (default: 3)
+- `-d, --dir`: Installation directory (default: test)
+- `--skip-install`: Skip cluster installation, generate config only
+- `-h, --help`: Show help information
 
 ### verify-hyperthreading.sh
 
-这个脚本用于验证现有集群的超线程禁用状态：
+This script verifies hyperthreading disable status on existing clusters:
 
-#### 功能
-- 验证所有节点或指定节点的超线程状态
-- 检查MachineConfigPool配置
-- 提供详细的CPU信息分析
-- 生成验证报告
+#### Features
+- Verifies hyperthreading status on all nodes or specified nodes
+- Checks MachineConfigPool configuration
+- Provides detailed CPU information analysis
+- Generates verification report
 
-#### 使用方法
+#### Usage
 ```bash
-# 验证所有节点
+# Verify all nodes
 ./verify-hyperthreading.sh --kubeconfig /path/to/kubeconfig
 
-# 验证特定节点
+# Verify specific node
 ./verify-hyperthreading.sh --kubeconfig /path/to/kubeconfig --node ip-10-0-130-76.us-east-2.compute.internal
 
-# 显示详细CPU信息
+# Show detailed CPU information
 ./verify-hyperthreading.sh --kubeconfig /path/to/kubeconfig --detailed
 ```
 
-#### 参数说明
-- `-k, --kubeconfig <path>`: Kubeconfig文件路径（必需）
-- `-n, --node <node-name>`: 指定单个节点进行验证（可选）
-- `-d, --detailed`: 显示详细的CPU信息（可选）
-- `-h, --help`: 显示帮助信息
+#### Parameters
+- `-k, --kubeconfig <path>`: Kubeconfig file path (required)
+- `-n, --node <node-name>`: Verify single node (optional)
+- `-d, --detailed`: Show detailed CPU information (optional)
+- `-h, --help`: Show help information
 
-## 手动执行步骤
+## Manual Execution Steps
 
-### 1. 准备环境
+### 1. Prepare environment
 ```bash
-# 确保已安装必要工具
+# Ensure required tools are installed
 aws --version
 openshift-install version
 oc version
 
-# 设置AWS凭证
+# Set AWS credentials
 aws configure
 
-# 准备pull-secret.json文件
+# Prepare pull-secret.json file
 cp pull-secret.json OCP-23541/
 ```
 
-### 2. 运行自动化脚本
+### 2. Run automation script
 ```bash
 cd OCP-23541
 ./setup-ocp-23541-test.sh --region us-east-2
 ```
 
-### 3. 手动验证（可选）
+### 3. Manual verification (optional)
 ```bash
-# 设置kubeconfig
+# Set kubeconfig
 export KUBECONFIG=test/auth/kubeconfig
 
-# 检查节点状态
+# Check node status
 oc get nodes
 
-# 验证超线程状态
+# Verify hyperthreading status
 ./verify-hyperthreading.sh --kubeconfig test/auth/kubeconfig --detailed
 ```
 
-### 4. 清理资源
+### 4. Cleanup resources
 ```bash
-# 销毁集群
+# Destroy cluster
 openshift-install destroy cluster --dir test
 ```
 
-## 验证要点
+## Verification Points
 
-### 超线程禁用验证
-在节点上执行以下命令验证超线程状态：
+### Hyperthreading Disable Verification
+Execute the following command on nodes to verify hyperthreading status:
 ```bash
 oc debug node/<node-name> -- chroot /host cat /proc/cpuinfo | grep -E "(siblings|cpu cores)"
 ```
 
-**正确结果示例：**
+**Correct Result Example:**
 ```
 siblings    : 4
 cpu cores   : 4
 ```
-- `siblings` = `cpu cores` 表示超线程已禁用
+- `siblings` = `cpu cores` indicates hyperthreading is disabled
 
-**错误结果示例：**
+**Incorrect Result Example:**
 ```
 siblings    : 8
 cpu cores   : 4
 ```
-- `siblings` > `cpu cores` 表示超线程未禁用
+- `siblings` > `cpu cores` indicates hyperthreading is not disabled
 
-### MachineConfigPool验证
+### MachineConfigPool Verification
 ```bash
 oc get machineconfigpools -o wide
 oc describe machineconfigpools master
 oc describe machineconfigpools worker
 ```
 
-**预期结果：**
-- 状态为 `Updated`
-- 配置名称包含超线程禁用配置
-- 所有节点都已更新
+**Expected Results:**
+- Status is `Updated`
+- Configuration names contain hyperthreading disable configuration
+- All nodes are updated
 
-### CPU信息分析
+### CPU Information Analysis
 ```bash
-# 获取详细CPU信息
+# Get detailed CPU information
 oc debug node/<node-name> -- chroot /host cat /proc/cpuinfo
 
-# 分析逻辑CPU和物理CPU
+# Analyze logical and physical CPUs
 oc debug node/<node-name> -- chroot /host nproc
 oc debug node/<node-name> -- chroot /host lscpu
 ```
 
-## 故障排除
+## Troubleshooting
 
-### 常见问题
+### Common Issues
 
-1. **超线程未禁用**
-   - 检查install-config.yaml中的hyperthreading配置
-   - 验证MachineConfigPool状态
-   - 确认节点已完全重启
+1. **Hyperthreading not disabled**
+   - Check hyperthreading configuration in install-config.yaml
+   - Verify MachineConfigPool status
+   - Confirm nodes have fully restarted
 
-2. **集群安装失败**
-   - 检查AWS权限和配额
-   - 验证实例类型是否支持
-   - 查看openshift-install日志
+2. **Cluster installation failed**
+   - Check AWS permissions and quotas
+   - Verify instance type support
+   - Review openshift-install logs
 
-3. **验证脚本失败**
-   - 确认kubeconfig文件有效
-   - 检查节点是否就绪
-   - 验证debug pod权限
+3. **Verification script failed**
+   - Confirm kubeconfig file is valid
+   - Check node readiness status
+   - Verify debug pod permissions
 
-4. **MachineConfigPool未更新**
-   - 等待配置应用完成
-   - 检查节点状态
-   - 查看MachineConfigOperator日志
+4. **MachineConfigPool not updated**
+   - Wait for configuration application to complete
+   - Check node status
+   - Review MachineConfigOperator logs
 
-### 调试命令
+### Debug Commands
 ```bash
-# 检查集群状态
+# Check cluster status
 oc get nodes -o wide
 oc get machineconfigpools
 oc get machineconfigs
 
-# 查看配置详情
+# View configuration details
 oc describe machineconfigpool master
 oc describe machineconfigpool worker
 
-# 检查节点事件
+# Check node events
 oc describe node <node-name>
 
-# 查看MachineConfigOperator日志
+# View MachineConfigOperator logs
 oc logs -n openshift-machine-config-operator deployment/machine-config-operator
 ```
 
-## 依赖要求
+## Requirements
 
-### 必需工具
-- `aws` CLI - AWS命令行工具
-- `openshift-install` - OpenShift安装工具
-- `oc` - OpenShift客户端工具
-- `jq` - JSON处理工具
+### Required Tools
+- `aws` CLI - AWS command line tool
+- `openshift-install` - OpenShift installation tool
+- `oc` - OpenShift client tool
+- `jq` - JSON processing tool
 
-### AWS权限
-- EC2权限（实例管理）
-- IAM权限（角色和策略管理）
-- VPC权限（网络管理）
-- Route53权限（DNS管理）
+### AWS Permissions
+- EC2 permissions (instance management)
+- IAM permissions (role and policy management)
+- VPC permissions (network management)
+- Route53 permissions (DNS management)
 
-### 文件要求
-- `pull-secret.json` - Red Hat拉取密钥
-- SSH公钥（~/.ssh/id_rsa.pub）
+### File Requirements
+- `pull-secret.json` - Red Hat pull secret
+- SSH public key (~/.ssh/id_rsa.pub)
 
-## 相关文档
+## Related Documentation
 
-- [OpenShift IPI安装文档](https://docs.openshift.com/container-platform/latest/installing/installing_aws/installing-aws-installer.html)
-- [OpenShift Machine Config Operator文档](https://docs.openshift.com/container-platform/latest/post_installation_configuration/machine-configuration-tasks.html)
-- [AWS EC2实例类型文档](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html)
+- [OpenShift IPI Installation Documentation](https://docs.openshift.com/container-platform/latest/installing/installing_aws/installing-aws-installer.html)
+- [OpenShift Machine Config Operator Documentation](https://docs.openshift.com/container-platform/latest/post_installation_configuration/machine-configuration-tasks.html)
+- [AWS EC2 Instance Type Documentation](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html)
 - [OCP-23541 JIRA](https://issues.redhat.com/browse/OCP-23541)
 
-## 注意事项
+## Notes
 
-1. **实例类型选择**：禁用超线程后，建议使用更大的实例类型以确保足够的CPU性能
-2. **安装时间**：超线程禁用可能需要额外的配置时间，请耐心等待
-3. **性能影响**：禁用超线程可能会影响某些工作负载的性能
-4. **成本考虑**：使用更大的实例类型会增加AWS成本
+1. **Instance Type Selection**: After disabling hyperthreading, it's recommended to use larger instance types to ensure sufficient CPU performance
+2. **Installation Time**: Disabling hyperthreading may require additional configuration time, please be patient
+3. **Performance Impact**: Disabling hyperthreading may affect performance of certain workloads
+4. **Cost Consideration**: Using larger instance types will increase AWS costs
 
-## 测试结果示例
+## Test Result Examples
 
-### 成功的验证输出
+### Successful Verification Output
 ```
-[INFO] 验证节点: ip-10-0-130-76.us-east-2.compute.internal
-[INFO] 节点角色: worker
-[INFO] CPU信息分析:
-  - 逻辑CPU数量: 4
-  - 物理CPU数量: 1
-  - 每个物理CPU的siblings: 4
-  - 每个物理CPU的cores: 4
-[SUCCESS] ✅ 超线程已禁用 (siblings == cpu_cores)
+[INFO] Verifying node: ip-10-0-130-76.us-east-2.compute.internal
+[INFO] Node role: worker
+[INFO] CPU information analysis:
+  - Logical CPU count: 4
+  - Physical CPU count: 1
+  - Siblings per physical CPU: 4
+  - Cores per physical CPU: 4
+[SUCCESS] ✅ Hyperthreading is disabled (siblings == cpu_cores)
 ```
 
-### MachineConfigPool状态
+### MachineConfigPool Status
 ```
 NAME     CONFIG                                   UPDATED   UPDATING   DEGRADED   MACHINECOUNT   READYMACHINECOUNT   UPDATEDMACHINECOUNT   DEGRADEDMACHINECOUNT   AGE
 master   rendered-master-abc123                    True      False      False      3              3                   3                     0                      15m

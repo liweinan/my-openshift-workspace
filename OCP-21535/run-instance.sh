@@ -1,11 +1,11 @@
 #!/bin/bash
 set -x
 
-# 设置终端编码
+# Set terminal encoding
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
 
-# 设置变量
+# Set variables
 IMAGE_ID="ami-0258229bf3cd8af20"
 INSTANCE_TYPE="m5.xlarge"
 KEY_NAME="weli-rhel-key"
@@ -14,7 +14,7 @@ SUBNET_ID="subnet-0d863bd5fb43d9137"
 REGION="us-east-1"
 INSTANCE_NAME="rhel-8.1-instance"
 
-printf "正在启动EC2实例...\n"
+printf "Launching EC2 instance...\n"
 
 aws ec2 run-instances \
   --image-id "${IMAGE_ID}" \
@@ -27,10 +27,10 @@ aws ec2 run-instances \
   --output table
 
 if [ $? -eq 0 ]; then
-    printf "实例启动命令执行成功\n"
-    printf "请等待几分钟让实例完全启动，然后使用以下命令查看实例状态：\n"
+    printf "Instance launch command executed successfully\n"
+    printf "Please wait a few minutes for the instance to fully start, then use the following command to check instance status:\n"
     printf "aws ec2 describe-instances --filters \"Name=tag:Name,Values=${INSTANCE_NAME}\" --region ${REGION} --output table\n"
 else
-    printf "实例启动失败\n"
+    printf "Instance launch failed\n"
     exit 1
 fi

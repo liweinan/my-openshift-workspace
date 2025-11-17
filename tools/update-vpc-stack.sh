@@ -9,7 +9,7 @@ AZ_COUNT=2
 TEMPLATE_FILE="vpc-template-public-cluster.yaml"
 
 usage() {
-    echo "用法: $0 [options]"
+    echo "Usage: $0 [options]"
     echo "选项:"
     echo "  -p, --profile <profile>      AWS CLI profile to use. Leave empty to use the default profile."
     echo "  -r, --region <region>        The AWS region where the stack will be updated. (Default: ${REGION})"
@@ -19,8 +19,8 @@ usage() {
     echo "  -t, --template-file <file>   The path to the CloudFormation template file. (Default: ${TEMPLATE_FILE})"
     echo "  -h, --help                   Show this help message."
     echo ""
-    echo "注意: 此脚本将更新现有的 VPC 堆栈，添加 NAT Gateway 和修复网络配置。"
-    echo "      更新过程中可能会短暂中断网络连接。"
+    echo "Note: This script will update the existing VPC stack, adding NAT Gateway and fixing network configuration."
+    echo "      Network connectivity may be briefly interrupted during the update process."
     exit 1
 }
 
@@ -40,27 +40,27 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 echo "=========================================="
-echo "VPC 堆栈更新工具"
+echo "VPC Stack Update Tool"
 echo "=========================================="
-echo "堆栈名称: ${STACK_NAME}"
-echo "区域: ${REGION}"
-echo "模板文件: ${TEMPLATE_FILE}"
+echo "Stack Name: ${STACK_NAME}"
+echo "Region: ${REGION}"
+echo "Template File: ${TEMPLATE_FILE}"
 echo "VPC CIDR: ${VPC_CIDR}"
-echo "可用区数量: ${AZ_COUNT}"
+echo "Availability Zone Count: ${AZ_COUNT}"
 echo ""
 
 # Check if stack exists
-echo "检查堆栈是否存在..."
+echo "Checking if stack exists..."
 if ! aws cloudformation describe-stacks --stack-name "${STACK_NAME}" --region "${REGION}" >/dev/null 2>&1; then
-    echo "错误: 堆栈 '${STACK_NAME}' 不存在或无法访问"
+    echo "Error: Stack '${STACK_NAME}' does not exist or cannot be accessed"
     exit 1
 fi
 
-echo "✓ 堆栈存在"
+echo "✓ Stack exists"
 echo ""
 
 # Show current stack status
-echo "当前堆栈状态:"
+echo "Current stack status:"
 aws cloudformation describe-stacks \
     --stack-name "${STACK_NAME}" \
     --region "${REGION}" \
@@ -70,16 +70,16 @@ aws cloudformation describe-stacks \
 echo ""
 
 # Confirm update
-echo "警告: 更新 VPC 堆栈可能会:"
-echo "1. 短暂中断网络连接"
-echo "2. 重新创建某些网络资源"
-echo "3. 更改子网的 MapPublicIpOnLaunch 设置"
-echo "4. 添加 NAT Gateway 和 EIP"
+echo "Warning: Updating VPC stack may:"
+echo "1. Briefly interrupt network connectivity"
+echo "2. Recreate certain network resources"
+echo "3. Change subnet MapPublicIpOnLaunch settings"
+echo "4. Add NAT Gateway and EIP"
 echo ""
-read -p "是否继续更新? (y/N): " -n 1 -r
+read -p "Continue with update? (y/N): " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo "更新已取消"
+    echo "Update cancelled"
     exit 0
 fi
 
@@ -100,21 +100,21 @@ if [ -n "${AWS_PROFILE}" ]; then
   CMD="${CMD} --profile ${AWS_PROFILE}"
 fi
 
-echo "执行更新命令:"
+echo "Executing update command:"
 echo "${CMD}"
 echo ""
 
 # Execute the command
-echo "开始更新堆栈..."
+echo "Starting stack update..."
 eval "${CMD}"
 
 if [ $? -eq 0 ]; then
     echo ""
     echo "=========================================="
-    echo "✓ VPC 堆栈更新成功!"
+    echo "✓ VPC stack update successful!"
     echo "=========================================="
     echo ""
-    echo "更新后的堆栈输出:"
+    echo "Updated stack outputs:"
     aws cloudformation describe-stacks \
         --stack-name "${STACK_NAME}" \
         --region "${REGION}" \
@@ -122,15 +122,15 @@ if [ $? -eq 0 ]; then
         --output table
     
     echo ""
-    echo "下一步:"
-    echo "1. 运行 './get-vpc-outputs.sh ${STACK_NAME}' 获取新的配置"
-    echo "2. 更新你的 install-config.yaml 文件"
-    echo "3. 重新运行 OpenShift 安装"
+    echo "Next steps:"
+    echo "1. Run './get-vpc-outputs.sh ${STACK_NAME}' to get new configuration"
+    echo "2. Update your install-config.yaml file"
+    echo "3. Re-run OpenShift installation"
 else
     echo ""
     echo "=========================================="
-    echo "✗ VPC 堆栈更新失败!"
+    echo "✗ VPC stack update failed!"
     echo "=========================================="
-    echo "请检查错误信息并重试"
+    echo "Please check error messages and retry"
     exit 1
 fi

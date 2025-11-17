@@ -1,98 +1,98 @@
 # OCP-25784 - [ipi-on-aws] Create private clusters with no public endpoints and access from internet
 
-## 测试目标
-验证在AWS上创建私有OpenShift集群，确保集群没有公共端点，只能通过VPC内的实例访问。
+## Test Objectives
+Validate the creation of private OpenShift clusters on AWS, ensuring clusters have no public endpoints and can only be accessed from instances within the VPC.
 
-## 前置条件
-- AWS CLI已配置
-- OpenShift安装工具已准备
-- 网络代理设置（如需要）
+## Prerequisites
+- AWS CLI configured
+- OpenShift installation tools prepared
+- Network proxy settings (if required)
 
-## 测试步骤
+## Test Steps
 
-### Step 1: 创建VPC和Bastion主机
+### Step 1: Create VPC and Bastion Host
 
-#### 1.1 创建VPC堆栈
+#### 1.1 Create VPC Stack
 ```bash
-# 使用私有集群VPC模板创建VPC
+# Create VPC using private cluster VPC template
 ../tools/create-vpc-stack.sh -s <vpc-stack-name> -t ../tools/vpc-template-private-cluster.yaml \
   --parameter-overrides VpcCidr=10.0.0.0/16 AvailabilityZoneCount=2
 ```
 
-**预期结果**: VPC堆栈创建成功，输出包含：
+**Expected Result**: VPC stack created successfully, outputs include:
 - VPC ID
-- 私有子网ID列表
-- 公共子网ID列表
+- Private subnet ID list
+- Public subnet ID list
 
-#### 1.2 创建Bastion主机
+#### 1.2 Create Bastion Host
 ```bash
-# 设置代理（如需要）
+# Set proxy (if required)
 export http_proxy=http://squid.corp.redhat.com:3128
 export https_proxy=http://squid.corp.redhat.com:3128
 
-# 创建bastion主机
+# Create bastion host
 ../tools/create-bastion-host.sh <vpc-id> <public-subnet-id> <bastion-name>
 ```
 
-**预期结果**: Bastion主机创建成功，获得：
-- 公共IP地址
-- SSH连接信息
+**Expected Result**: Bastion host created successfully, obtain:
+- Public IP address
+- SSH connection information
 
-#### 1.3 标记子网
+#### 1.3 Tag Subnets
 ```bash
-# 为OpenShift安装标记子网
+# Tag subnets for OpenShift installation
 ../tools/tag-subnets.sh <vpc-stack-name> <cluster-name> <aws-region>
 ```
 
-**预期结果**: 子网成功标记，包含：
+**Expected Result**: Subnets successfully tagged, including:
 - `kubernetes.io/cluster/<cluster-name>=shared`
-- `kubernetes.io/role/elb=1` (公共子网)
-- `kubernetes.io/role/internal-elb=1` (私有子网)
+- `kubernetes.io/role/elb=1` (public subnets)
+- `kubernetes.io/role/internal-elb=1` (private subnets)
 
-### Step 2: 准备安装工具
+### Step 2: Prepare Installation Tools
 
-#### 2.1 下载OpenShift CLI
+#### 2.1 Download OpenShift CLI
 ```bash
-# 下载oc工具
+# Download oc tool
 ./download-oc.sh --version 4.20.0-rc.2
 tar -xzf openshift-client-linux-4.20.0-rc.2-x86_64.tar.gz
 chmod +x oc kubectl
 ```
 
-#### 2.2 传输工具和凭证到Bastion主机
+#### 2.2 Transfer Tools and Credentials to Bastion Host
 ```bash
-# 传输oc工具到bastion主机
+# Transfer oc tool to bastion host
 scp oc core@<bastion-public-ip>:~/
 
-# 传输OpenShift pull-secret
+# Transfer OpenShift pull-secret
 scp ~/.openshift/pull-secret core@<bastion-public-ip>:~/
 
-# 传输AWS凭证
+# Transfer AWS credentials
 scp -r ~/.aws core@<bastion-public-ip>:~/
 
-# 传输认证文件（如需要）
+# Transfer authentication files (if required)
 scp <auth-file> core@<bastion-public-ip>:~/
 ```
 
-#### 2.3 在Bastion主机上提取安装工具
+#### 2.3 Extract Installation Tools on Bastion Host
 ```bash
-# SSH到bastion主机
+# SSH to bastion host
 ssh core@<bastion-public-ip>
 
-# 提取openshift-install工具
+# Extract openshift-install tool
 ./oc adm release extract --tools quay.io/openshift-release-dev/ocp-release:4.20.0-rc.2-x86_64 -a auth.json
 tar zxvf openshift-install-linux-4.20.0-rc.2.tar.gz
 chmod +x openshift-install
 ```
 
-### Step 3: 创建install-config.yaml
+### Step 3: Create install-config.yaml
 
-#### 3.1 生成基础配置
+#### 3.1 Generate Base Configuration
 ```bash
-# 在bastion主机上运行
+# Run on bastion host
 ./openshift-install create install-config
 
-# 或者手动创建install-config.yaml文件
+# Or manually create install-config.yaml file
 cat > install-config.yaml << EOF
 apiVersion: v1
 baseDomain: qe.devcluster.openshift.com
@@ -119,8 +119,8 @@ pullSecret: '$(cat ~/pull-secret)'
 EOF
 ```
 
-#### 3.2 配置私有集群
-编辑`install-config.yaml`，确保包含以下关键配置：
+#### 3.2 Configure Private Cluster
+Edit `install-config.yaml` to ensure it contains the following key configurations:
 
 ```yaml
 apiVersion: v1
@@ -143,134 +143,134 @@ platform:
       subnets:
         - id: <private-subnet-1>
         - id: <private-subnet-2>
-publish: Internal  # 关键：设置为Internal
-pullSecret: '{"auths":{"registry.redhat.io":{"auth":"..."}}}'  # 从本地pull-secret文件复制
+publish: Internal  # Key: Set to Internal
+pullSecret: '{"auths":{"registry.redhat.io":{"auth":"..."}}}'  # Copy from local pull-secret file
 ```
 
-**预期结果**: `install-config.yaml`创建成功，`publish`字段设置为`Internal`
+**Expected Result**: `install-config.yaml` created successfully, `publish` field set to `Internal`
 
-### Step 4: 执行IPI安装
+### Step 4: Execute IPI Installation
 
-#### 4.1 启动集群安装
+#### 4.1 Start Cluster Installation
 ```bash
-# 在bastion主机上运行
+# Run on bastion host
 ./openshift-install create cluster
 ```
 
-**预期结果**: 
-- 安装过程正常进行
-- 出现`WARNING process cluster-api-provider-aws exited with error: signal: killed`（正常）
-- 最终显示`Install complete!`
-- 提供kubeadmin密码和console URL
+**Expected Results**: 
+- Installation process proceeds normally
+- `WARNING process cluster-api-provider-aws exited with error: signal: killed` appears (normal)
+- Finally displays `Install complete!`
+- Provides kubeadmin password and console URL
 
-#### 4.2 验证安装结果
+#### 4.2 Verify Installation Results
 ```bash
-# 设置kubeconfig
+# Set kubeconfig
 export KUBECONFIG=/var/home/core/auth/kubeconfig
 
-# 检查节点状态
+# Check node status
 ./oc get nodes
 
-# 检查集群操作员状态
+# Check cluster operator status
 ./oc get clusteroperators
 ```
 
-**预期结果**:
-- 所有节点状态为`Ready`
-- 所有集群操作员状态为`Available`
+**Expected Results**:
+- All node status is `Ready`
+- All cluster operator status is `Available`
 
-### Step 5: 验证私有集群访问
+### Step 5: Verify Private Cluster Access
 
-#### 5.1 在VPC内访问应用
+#### 5.1 Access Applications Within VPC
 ```bash
-# 在bastion主机上测试console访问
+# Test console access from bastion host
 curl -v -k console-openshift-console.apps.<cluster-name>.qe.devcluster.openshift.com
 ```
 
-**预期结果**: 
-- 能够成功连接到console URL
-- 返回HTTP 302重定向响应
+**Expected Result**: 
+- Successfully connect to console URL
+- Returns HTTP 302 redirect response
 
-#### 5.2 在VPC外验证无法访问
+#### 5.2 Verify No Access from Outside VPC
 ```bash
-# 在VPC外的机器上测试
+# Test from machine outside VPC
 curl -v -k console-openshift-console.apps.<cluster-name>.qe.devcluster.openshift.com
 ```
 
-**预期结果**: 
-- 无法解析主机名
-- 连接失败
+**Expected Result**: 
+- Cannot resolve hostname
+- Connection fails
 
-### Step 6: 清理资源
+### Step 6: Cleanup Resources
 
-#### 6.1 销毁集群
+#### 6.1 Destroy Cluster
 ```bash
-# 在bastion主机上运行
+# Run on bastion host
 ./openshift-install destroy cluster
 ```
 
-**预期结果**: 
-- 集群资源成功删除
-- 显示`Uninstallation complete!`
+**Expected Result**: 
+- Cluster resources successfully deleted
+- Displays `Uninstallation complete!`
 
-#### 6.2 清理VPC和Bastion
+#### 6.2 Cleanup VPC and Bastion
 ```bash
-# 删除bastion主机堆栈
+# Delete bastion host stack
 aws cloudformation delete-stack --stack-name <bastion-stack-name>
 
-# 删除VPC堆栈
+# Delete VPC stack
 aws cloudformation delete-stack --stack-name <vpc-stack-name>
 ```
 
-## 验证要点
+## Verification Points
 
-### 网络隔离验证
-1. **VPC内访问**: 从bastion主机能够访问OpenShift console
-2. **VPC外访问**: 从VPC外无法访问任何集群端点
-3. **DNS解析**: 集群域名只在VPC内可解析
+### Network Isolation Verification
+1. **VPC Internal Access**: Can access OpenShift console from bastion host
+2. **VPC External Access**: Cannot access any cluster endpoints from outside VPC
+3. **DNS Resolution**: Cluster domain names only resolvable within VPC
 
-### 安全配置验证
-1. **私有子网**: 所有worker和master节点部署在私有子网
-2. **内部负载均衡器**: 使用内部负载均衡器
-3. **Route53私有区域**: 使用私有托管区域
+### Security Configuration Verification
+1. **Private Subnets**: All worker and master nodes deployed in private subnets
+2. **Internal Load Balancers**: Use internal load balancers
+3. **Route53 Private Zone**: Use private hosted zones
 
-### 功能验证
-1. **集群健康**: 所有节点和操作员状态正常
-2. **应用部署**: 能够部署和访问应用
-3. **网络策略**: 网络隔离策略生效
+### Functionality Verification
+1. **Cluster Health**: All nodes and operators status normal
+2. **Application Deployment**: Can deploy and access applications
+3. **Network Policy**: Network isolation policies effective
 
-## 故障排除
+## Troubleshooting
 
-### 常见问题
-1. **凭证问题**: 确保pull-secret和AWS凭证已正确传输到bastion主机
-2. **子网标记问题**: 确保子网正确标记了Kubernetes标签
-3. **网络连接问题**: 检查安全组和路由表配置
-4. **DNS解析问题**: 验证Route53私有区域配置
+### Common Issues
+1. **Credential Issues**: Ensure pull-secret and AWS credentials are correctly transferred to bastion host
+2. **Subnet Tagging Issues**: Ensure subnets are correctly tagged with Kubernetes labels
+3. **Network Connection Issues**: Check security group and route table configurations
+4. **DNS Resolution Issues**: Verify Route53 private zone configuration
 
-### 调试命令
+### Debug Commands
 ```bash
-# 检查凭证文件
+# Check credential files
 ls -la ~/.aws/
 ls -la ~/pull-secret
 
-# 检查VPC配置
+# Check VPC configuration
 aws ec2 describe-vpcs --vpc-ids <vpc-id>
 
-# 检查子网标记
+# Check subnet tags
 aws ec2 describe-subnets --subnet-ids <subnet-id>
 
-# 检查安全组
+# Check security groups
 aws ec2 describe-security-groups --filters "Name=vpc-id,Values=<vpc-id>"
 
-# 验证AWS凭证
+# Verify AWS credentials
 aws sts get-caller-identity
 ```
 
-## 测试通过标准
-- [ ] VPC和bastion主机创建成功
-- [ ] 子网正确标记
-- [ ] 私有集群安装成功
-- [ ] 所有节点和操作员状态正常
-- [ ] VPC内能够访问集群
-- [ ] VPC外无法访问集群
-- [ ] 集群资源成功清理
+## Test Pass Criteria
+- [ ] VPC and bastion host created successfully
+- [ ] Subnets correctly tagged
+- [ ] Private cluster installation successful
+- [ ] All nodes and operators status normal
+- [ ] VPC internal cluster access possible
+- [ ] VPC external cluster access blocked
+- [ ] Cluster resources successfully cleaned up

@@ -12,7 +12,7 @@ USER="ec2-user"
 
 printf "Getting instance public IP address...\n"
 
-# 获取实例的公网IP
+# Get instance public IP
 PUBLIC_IP=$(aws ec2 describe-instances \
   --filters "Name=tag:Name,Values=${INSTANCE_NAME}" \
   --query 'Reservations[0].Instances[0].PublicIpAddress' \
@@ -28,17 +28,17 @@ fi
 printf "Instance public IP: ${PUBLIC_IP}\n"
 printf "Connecting to instance...\n"
 
-# 检查密钥文件是否存在
+# Check if key file exists
 if [ ! -f "${KEY_FILE}" ]; then
     printf "Error: Key file ${KEY_FILE} does not exist\n"
     printf "Please ensure key file is in current directory\n"
     exit 1
 fi
 
-# 设置密钥文件权限
+# Set key file permissions
 chmod 400 "${KEY_FILE}"
 
-# 连接到实例
+# Connect to instance
 printf "Using following command to connect to instance:\n"
 printf "ssh -i ${KEY_FILE} ${USER}@${PUBLIC_IP}\n"
 printf "\n"

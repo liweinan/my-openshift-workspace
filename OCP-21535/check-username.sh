@@ -11,7 +11,7 @@ KEY_FILE="weli-rhel-key.pem"
 
 printf "Checking instance public IP...\n"
 
-# 获取实例的公网IP
+# Get instance public IP
 PUBLIC_IP=$(aws ec2 describe-instances \
   --filters "Name=tag:Name,Values=${INSTANCE_NAME}" \
   --query 'Reservations[0].Instances[0].PublicIpAddress' \
@@ -26,10 +26,10 @@ fi
 printf "Instance public IP: ${PUBLIC_IP}\n"
 printf "Testing different usernames for RHEL 8.1...\n"
 
-# 常见的RHEL用户名
+# Common RHEL usernames
 USERS=("ec2-user" "rhel" "root" "admin")
 
-# 检查密钥文件
+# Check key file
 if [ ! -f "${KEY_FILE}" ]; then
     printf "Error: Key file ${KEY_FILE} does not exist\n"
     exit 1
@@ -37,7 +37,7 @@ fi
 
 chmod 400 "${KEY_FILE}"
 
-# 测试每个用户名
+# Test each username
 for USER in "${USERS[@]}"; do
     printf "Testing username: ${USER}\n"
     

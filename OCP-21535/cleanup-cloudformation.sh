@@ -1,24 +1,24 @@
 #!/bin/bash
 
-# 设置终端编码
+# Set terminal encoding
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
 
-# 设置变量
+# Set variables
 STACK_NAME="rhel-infrastructure"
 REGION="us-east-1"
 
 printf "CloudFormation Stack Cleanup\n"
 printf "============================\n\n"
 
-# 检查堆栈是否存在
+# Check if stack exists
 printf "1. Checking if stack exists...\n"
 if ! aws cloudformation describe-stacks --stack-name "${STACK_NAME}" --region "${REGION}" >/dev/null 2>&1; then
     printf "Stack ${STACK_NAME} does not exist\n"
     exit 0
 fi
 
-# 显示堆栈信息
+# Display stack info
 printf "Stack found. Current status:\n"
 aws cloudformation describe-stacks \
     --stack-name "${STACK_NAME}" \
@@ -26,7 +26,7 @@ aws cloudformation describe-stacks \
     --query 'Stacks[0].{StackName:StackName,StackStatus:StackStatus,CreationTime:CreationTime}' \
     --output table
 
-# 确认删除
+# Confirm deletion
 printf "\n2. Confirming deletion...\n"
 read -p "Are you sure you want to delete stack '${STACK_NAME}'? This will remove ALL resources (y/n): " -n 1 -r
 printf "\n"
@@ -36,7 +36,7 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# 删除堆栈
+# Delete stack
 printf "3. Deleting stack...\n"
 aws cloudformation delete-stack --stack-name "${STACK_NAME}" --region "${REGION}"
 
@@ -47,7 +47,7 @@ if [ $? -eq 0 ]; then
     if [ $? -eq 0 ]; then
         printf "Stack deletion completed successfully!\n"
         
-        # 清理本地文件
+        # Clean up local files
         printf "\n4. Cleaning up local files...\n"
         KEY_PAIR_NAME="weli-rhel-key"
         if [ -f "${KEY_PAIR_NAME}.pem" ]; then

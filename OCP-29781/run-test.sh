@@ -1,18 +1,18 @@
 #!/bin/bash
 
-# OCP-29781 主测试脚本
-# 执行完整的测试流程
+# OCP-29781 Main Test Script
+# Execute complete test workflow
 
 set -euo pipefail
 
-# 颜色输出
+# Color output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# 日志函数
+# Logging functions
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
 }
@@ -29,47 +29,47 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# 测试步骤计数器
+# Test step counter
 STEP_COUNT=0
 
-# 执行测试步骤
+# Execute test step
 run_step() {
     local step_name="$1"
     local step_command="$2"
     
     ((STEP_COUNT++))
     echo
-    log_info "=== 步骤 ${STEP_COUNT}: ${step_name} ==="
+    log_info "=== Step ${STEP_COUNT}: ${step_name} ==="
     
     if eval "${step_command}"; then
-        log_success "步骤 ${STEP_COUNT} 完成: ${step_name}"
+        log_success "Step ${STEP_COUNT} completed: ${step_name}"
         return 0
     else
-        log_error "步骤 ${STEP_COUNT} 失败: ${step_name}"
+        log_error "Step ${STEP_COUNT} failed: ${step_name}"
         return 1
     fi
 }
 
-# 检查前置条件
+# Check prerequisites
 check_prerequisites() {
-    log_info "检查前置条件..."
+    log_info "Checking prerequisites..."
     
-    # 检查必要的工具
+    # Check required tools
     local required_tools=("aws" "openshift-install" "oc" "jq")
     for tool in "${required_tools[@]}"; do
         if ! command -v "${tool}" &> /dev/null; then
-            log_error "未找到必要工具: ${tool}"
+            log_error "Required tool not found: ${tool}"
             return 1
         fi
     done
     
-    # 检查AWS凭据
+    # Check AWS credentials
     if ! aws sts get-caller-identity &> /dev/null; then
-        log_error "AWS凭据未配置"
+        log_error "AWS credentials not configured"
         return 1
     fi
     
-    # 检查配置文件
+    # Check configuration files
     local required_files=(
         "install-config-cluster1.yaml"
         "install-config-cluster2.yaml"
@@ -77,57 +77,57 @@ check_prerequisites() {
     
     for file in "${required_files[@]}"; do
         if [[ ! -f "${file}" ]]; then
-            log_error "未找到配置文件: ${file}"
+            log_error "Configuration file not found: ${file}"
             return 1
         fi
         
-        # 检查配置文件中是否还有占位符
+        # Check if configuration files still contain placeholders
         if grep -q "YOUR_PULL_SECRET_HERE\|YOUR_SSH_PUBLIC_KEY_HERE" "${file}"; then
-            log_error "配置文件 ${file} 包含占位符，请更新实际值"
+            log_error "Configuration file ${file} contains placeholders, please update with actual values"
             return 1
         fi
     done
     
-    log_success "前置条件检查通过"
+    log_success "Prerequisites check passed"
     return 0
 }
 
-# 显示使用说明
+# Display usage information
 show_usage() {
-    echo "使用方法: $0 [选项]"
+    echo "Usage: $0 [options]"
     echo ""
-    echo "选项:"
-    echo "  -h, --help              显示此帮助信息"
-    echo "  -s, --step STEP         从指定步骤开始执行"
-    echo "  -e, --end-step STEP     在指定步骤结束执行"
-    echo "  -c, --cleanup-only      仅执行清理步骤"
-    echo "  -f, --force             强制执行，不询问确认"
+    echo "Options:"
+    echo "  -h, --help              Display this help information"
+    echo "  -s, --step STEP         Start execution from specified step"
+    echo "  -e, --end-step STEP     End execution at specified step"
+    echo "  -c, --cleanup-only      Only execute cleanup steps"
+    echo "  -f, --force             Force execution without confirmation"
     echo ""
-    echo "测试步骤:"
-    echo "  1  - 创建VPC和子网"
-    echo "  2  - 创建集群1"
-    echo "  3  - 集群1健康检查"
-    echo "  4  - 创建集群2"
-    echo "  5  - 集群2健康检查"
-    echo "  6  - 安全组检查"
-    echo "  7  - 网络隔离测试"
-    echo "  8  - 清理资源"
+    echo "Test steps:"
+    echo "  1  - Create VPC and subnets"
+    echo "  2  - Create cluster 1"
+    echo "  3  - Cluster 1 health check"
+    echo "  4  - Create cluster 2"
+    echo "  5  - Cluster 2 health check"
+    echo "  6  - Security group check"
+    echo "  7  - Network isolation test"
+    echo "  8  - Cleanup resources"
     echo ""
-    echo "示例:"
-    echo "  $0                      # 执行完整测试"
-    echo "  $0 -s 3                 # 从步骤3开始"
-    echo "  $0 -s 1 -e 5            # 执行步骤1-5"
-    echo "  $0 -c                   # 仅清理资源"
+    echo "Examples:"
+    echo "  $0                      # Execute complete test"
+    echo "  $0 -s 3                 # Start from step 3"
+    echo "  $0 -s 1 -e 5            # Execute steps 1-5"
+    echo "  $0 -c                   # Only cleanup resources"
 }
 
-# 主函数
+# Main function
 main() {
     local start_step=1
     local end_step=8
     local cleanup_only=false
     local force=false
     
-    # 解析命令行参数
+    # Parse command line arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
             -h|--help)
@@ -151,110 +151,110 @@ main() {
                 shift
                 ;;
             *)
-                log_error "未知选项: $1"
+                log_error "Unknown option: $1"
                 show_usage
                 exit 1
                 ;;
         esac
     done
     
-    # 确认执行
+    # Confirm execution
     if [[ "${force}" != "true" ]]; then
         echo
-        log_warning "此脚本将执行OCP-29781测试，包括："
-        echo "  - 创建VPC和子网"
-        echo "  - 创建两个OpenShift集群"
-        echo "  - 执行各种验证测试"
-        echo "  - 清理所有资源"
+        log_warning "This script will execute OCP-29781 test, including:"
+        echo "  - Create VPC and subnets"
+        echo "  - Create two OpenShift clusters"
+        echo "  - Execute various validation tests"
+        echo "  - Clean up all resources"
         echo
-        read -p "确定要继续吗？(y/N): " -n 1 -r
+        read -p "Are you sure you want to continue? (y/N): " -n 1 -r
         echo
         
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            log_info "操作已取消"
+            log_info "Operation cancelled"
             exit 0
         fi
     fi
     
-    log_info "开始OCP-29781测试"
-    log_info "执行步骤: ${start_step} - ${end_step}"
+    log_info "Starting OCP-29781 test"
+    log_info "Executing steps: ${start_step} - ${end_step}"
     echo
     
-    # 检查前置条件
+    # Check prerequisites
     if ! check_prerequisites; then
-        log_error "前置条件检查失败"
+        log_error "Prerequisites check failed"
         exit 1
     fi
     
     local test_failed=false
     
-    # 执行测试步骤
+    # Execute test steps
     if [[ "${cleanup_only}" == "true" ]]; then
-        # 仅执行清理
-        if ! run_step "清理资源" "./cleanup.sh -f"; then
+        # Only execute cleanup
+        if ! run_step "Cleanup resources" "./cleanup.sh -f"; then
             test_failed=true
         fi
     else
-        # 执行完整测试流程
+        # Execute complete test workflow
         if [[ ${start_step} -le 1 && ${end_step} -ge 1 ]]; then
-            if ! run_step "创建VPC和子网" "./create-vpc.sh"; then
+            if ! run_step "Create VPC and subnets" "./create-vpc.sh"; then
                 test_failed=true
             fi
         fi
         
         if [[ ${start_step} -le 2 && ${end_step} -ge 2 ]]; then
-            if ! run_step "创建集群1" "mkdir -p cluster1 && cp install-config-cluster1.yaml cluster1/install-config.yaml && openshift-install --dir=cluster1 create cluster"; then
+            if ! run_step "Create cluster 1" "mkdir -p cluster1 && cp install-config-cluster1.yaml cluster1/install-config.yaml && openshift-install --dir=cluster1 create cluster"; then
                 test_failed=true
             fi
         fi
         
         if [[ ${start_step} -le 3 && ${end_step} -ge 3 ]]; then
-            if ! run_step "集群1健康检查" "./health-check.sh cluster1"; then
+            if ! run_step "Cluster 1 health check" "./health-check.sh cluster1"; then
                 test_failed=true
             fi
         fi
         
         if [[ ${start_step} -le 4 && ${end_step} -ge 4 ]]; then
-            if ! run_step "创建集群2" "mkdir -p cluster2 && cp install-config-cluster2.yaml cluster2/install-config.yaml && openshift-install --dir=cluster2 create cluster"; then
+            if ! run_step "Create cluster 2" "mkdir -p cluster2 && cp install-config-cluster2.yaml cluster2/install-config.yaml && openshift-install --dir=cluster2 create cluster"; then
                 test_failed=true
             fi
         fi
         
         if [[ ${start_step} -le 5 && ${end_step} -ge 5 ]]; then
-            if ! run_step "集群2健康检查" "./health-check.sh cluster2"; then
+            if ! run_step "Cluster 2 health check" "./health-check.sh cluster2"; then
                 test_failed=true
             fi
         fi
         
         if [[ ${start_step} -le 6 && ${end_step} -ge 6 ]]; then
-            if ! run_step "安全组检查" "./security-group-check.sh cluster1 10.134.0.0/16 && ./security-group-check.sh cluster2 10.190.0.0/16"; then
+            if ! run_step "Security group check" "./security-group-check.sh cluster1 10.134.0.0/16 && ./security-group-check.sh cluster2 10.190.0.0/16"; then
                 test_failed=true
             fi
         fi
         
         if [[ ${start_step} -le 7 && ${end_step} -ge 7 ]]; then
-            if ! run_step "网络隔离测试" "./network-isolation-test.sh cluster1 cluster2"; then
+            if ! run_step "Network isolation test" "./network-isolation-test.sh cluster1 cluster2"; then
                 test_failed=true
             fi
         fi
         
         if [[ ${start_step} -le 8 && ${end_step} -ge 8 ]]; then
-            if ! run_step "清理资源" "./cleanup.sh -f"; then
+            if ! run_step "Cleanup resources" "./cleanup.sh -f"; then
                 test_failed=true
             fi
         fi
     fi
     
-    # 总结结果
+    # Summarize results
     echo
     if [[ "${test_failed}" == "true" ]]; then
-        log_error "测试失败"
+        log_error "Test failed"
         exit 1
     else
-        log_success "测试完成"
+        log_success "Test completed"
         exit 0
     fi
 }
 
-# 运行主函数
+# Run main function
 main "$@"

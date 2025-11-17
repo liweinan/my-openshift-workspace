@@ -1,155 +1,155 @@
-# OCP-23394 手动测试指南
+# OCP-23394 Manual Test Guide
 
-## 测试用例对应步骤
+## Test Case Corresponding Steps
 
-### Step 1: 设置 SSH Agent
-**测试用例步骤**: `set up the ssh-agent`
+### Step 1: Set up SSH Agent
+**Test Case Step**: `set up the ssh-agent`
 ```bash
-# 设置 SSH Agent
+# Set up SSH Agent
 eval `ssh-agent -s`
 ssh-add ~/.ssh/id_rsa
 
-# 验证设置
+# Verify setup
 ssh-add -l
 ```
 
-**期待结果**: SSH Agent 成功启动，SSH 密钥已添加
+**Expected Result**: SSH Agent started successfully, SSH key added
 
-### Step 2: 启动集群安装
-**测试用例步骤**: `launch a cluster`
+### Step 2: Start Cluster Installation
+**Test Case Step**: `launch a cluster`
 ```bash
-# 创建工作目录
+# Create working directory
 mkdir test-bootstrap-failure
 cd test-bootstrap-failure
 
-# 生成 install-config.yaml
+# Generate install-config.yaml
 openshift-install create install-config --dir .
 
-# 启动集群安装
+# Start cluster installation
 openshift-install create cluster --dir .
 ```
 
-**期待结果**: 集群安装开始，可以看到安装进度输出
+**Expected Result**: Cluster installation starts, installation progress output visible
 
-### Step 3: 中断安装过程
-**测试用例步骤**: `enter 'ctrl-c' to break openshift-install when the condition is satisfied`
+### Step 3: Interrupt Installation Process
+**Test Case Step**: `enter 'ctrl-c' to break openshift-install when the condition is satisfied`
 
-#### 重要说明：Bootstrap 节点生命周期
-- **Bootstrap 节点创建**: 在安装开始时创建
-- **Bootstrap 节点工作**: 启动控制平面节点
-- **Bootstrap 节点销毁**: 在 `wait-for bootstrap-complete` 完成后被销毁
-- **日志收集**: `gather bootstrap` 命令会在 bootstrap 节点不存在时从控制平面节点收集相关日志
+#### Important Note: Bootstrap Node Lifecycle
+- **Bootstrap Node Creation**: Created at installation start
+- **Bootstrap Node Function**: Starts control plane nodes
+- **Bootstrap Node Destruction**: Destroyed after `wait-for bootstrap-complete` completes
+- **Log Collection**: `gather bootstrap` command collects relevant logs from control plane nodes when bootstrap node doesn't exist
 
-#### 方法 A: 监控日志消息中断
-**关键时机**: 当看到以下消息时，立即按 `Ctrl+C` 中断：
+#### Method A: Monitor Log Messages and Interrupt
+**Critical Timing**: When you see the following message, immediately press `Ctrl+C` to interrupt:
 ```
 added bootstrap-success: Required control plane pods have been created
 ```
 
-#### 方法 B: 分阶段中断
+#### Method B: Staged Interruption
 ```bash
-# 等待 bootstrap 完成（此时 bootstrap 节点已被销毁）
+# Wait for bootstrap to complete (bootstrap node will be destroyed at this point)
 openshift-install wait-for bootstrap-complete --dir .
 
-# 然后在 install-complete 阶段中断
+# Then interrupt during install-complete phase
 openshift-install wait-for install-complete --dir .
-# 按 Ctrl+C 中断
+# Press Ctrl+C to interrupt
 ```
 
-**期待结果**: 安装过程被成功中断，bootstrap 节点已完成工作但集群安装未完成
+**Expected Result**: Installation process successfully interrupted, bootstrap node completed its work but cluster installation not finished
 
-### Step 4: 收集引导日志
-**测试用例步骤**: `use the sub-command 'gather' to collect information`
+### Step 4: Collect Bootstrap Logs
+**Test Case Step**: `use the sub-command 'gather' to collect information`
 
-#### 重要说明：日志收集机制
-- **Bootstrap 节点存在时**: 直接从 bootstrap 节点收集日志
-- **Bootstrap 节点已销毁时**: 从控制平面节点收集相关的 bootstrap 日志
-- **智能收集**: `gather bootstrap` 命令会自动处理这两种情况
+#### Important Note: Log Collection Mechanism
+- **When Bootstrap Node Exists**: Collect logs directly from bootstrap node
+- **When Bootstrap Node Destroyed**: Collect relevant bootstrap logs from control plane nodes
+- **Smart Collection**: `gather bootstrap` command automatically handles both scenarios
 
-#### 方法 1: 使用目录参数（推荐）
+#### Method 1: Use Directory Parameter (Recommended)
 ```bash
 openshift-install gather bootstrap --dir .
 ```
 
-#### 方法 2: 使用具体 IP 地址
+#### Method 2: Use Specific IP Addresses
 ```bash
 openshift-install gather bootstrap \
   --bootstrap <BOOTSTRAP_IP> \
   --master "<MASTER1_IP> <MASTER2_IP> <MASTER3_IP>"
 ```
 
-**期待结果**: 输出类似以下信息：
+**Expected Result**: Output similar to:
 ```
 INFO Use the following commands to gather logs from the cluster
 INFO ssh -A core@<BOOTSTRAP_IP> '/usr/local/bin/installer-gather.sh <MASTER1_IP> <MASTER2_IP> <MASTER3_IP>'
 INFO scp core@<BOOTSTRAP_IP>:~/log-bundle.tar.gz .
 ```
 
-**注意**: 如果 bootstrap 节点已被销毁，命令会从控制平面节点收集相关日志。
+**Note**: If bootstrap node has been destroyed, the command will collect relevant logs from control plane nodes.
 
-### Step 5: 执行日志收集命令
-**测试用例步骤**: `Following the guide to gather debugging data`
+### Step 5: Execute Log Collection Commands
+**Test Case Step**: `Following the guide to gather debugging data`
 
 ```bash
-# 执行日志收集脚本
+# Execute log collection script
 ssh -A core@<BOOTSTRAP_IP> '/usr/local/bin/installer-gather.sh <MASTER1_IP> <MASTER2_IP> <MASTER3_IP>'
 
-# 下载日志包
+# Download log bundle
 scp core@<BOOTSTRAP_IP>:~/log-bundle.tar.gz .
 ```
 
-**期待结果**: 
-- SSH 连接成功，日志收集脚本执行完成
-- 输出: `Log bundle written to ~/log-bundle.tar.gz`
-- 日志包成功下载到本地
+**Expected Results**: 
+- SSH connection successful, log collection script execution completed
+- Output: `Log bundle written to ~/log-bundle.tar.gz`
+- Log bundle successfully downloaded to local
 
-### Step 6: 验证日志内容
-**测试用例步骤**: `check the contents of the logs to verify that at least one of the control-plane sub-directories has a journal log and the resources/nodes.list to exist`
+### Step 6: Verify Log Content
+**Test Case Step**: `check the contents of the logs to verify that at least one of the control-plane sub-directories has a journal log and the resources/nodes.list to exist`
 
 ```bash
-# 解压日志包
+# Extract log bundle
 tar xvf log-bundle.tar.gz
 
-# 检查日志目录结构
+# Check log directory structure
 ls -la
 
-# 检查控制平面节点日志
+# Check control plane node logs
 find . -name "journal" -type d
 ls -la */journal/
 
-# 检查节点列表
+# Check node list
 find . -name "nodes.list"
 cat */resources/nodes.list
 ```
 
-**期待结果**:
-- 至少包含一个控制平面子目录的 journal 日志
-- `resources/nodes.list` 文件存在并包含预期节点列表
-- 日志文件大小合理，内容完整
+**Expected Results**:
+- At least one control plane subdirectory contains journal logs
+- `resources/nodes.list` file exists and contains expected node list
+- Log files are reasonably sized with complete content
 
-### Step 7: 验证串行日志 (OpenShift 4.11+)
-**测试用例步骤**: `Check the content of log-bundle directory, the bootstrap and all available control-plane nodes' serial logs should be gathered under [log-bundle directory]/serial`
+### Step 7: Verify Serial Logs (OpenShift 4.11+)
+**Test Case Step**: `Check the content of log-bundle directory, the bootstrap and all available control-plane nodes' serial logs should be gathered under [log-bundle directory]/serial`
 
 ```bash
-# 检查串行日志目录
+# Check serial log directory
 find . -name "serial" -type d
 ls -la */serial/
 
-# 验证 bootstrap 节点串行日志
+# Verify bootstrap node serial logs
 ls -la */serial/bootstrap/
 
-# 验证控制平面节点串行日志
+# Verify control plane node serial logs
 ls -la */serial/master-*/
 ```
 
-**期待结果** (4.11+):
-- bootstrap 和所有可用控制平面节点的串行日志被收集
-- 串行日志位于 `[log-bundle directory]/serial` 目录下
-- 日志文件包含系统启动和运行信息
+**Expected Results** (4.11+):
+- Bootstrap and all available control plane node serial logs collected
+- Serial logs located in `[log-bundle directory]/serial` directory
+- Log files contain system boot and runtime information
 
-## 获取IP地址
+## Getting IP Addresses
 
-### Bootstrap节点IP
+### Bootstrap Node IP
 ```bash
 aws ec2 describe-instances \
   --filters "Name=tag:Name,Values=<CLUSTER_NAME>-bootstrap" \
@@ -157,7 +157,7 @@ aws ec2 describe-instances \
   --output text
 ```
 
-### Master节点IP
+### Master Node IP
 ```bash
 aws ec2 describe-instances \
   --filters "Name=tag:Name,Values=<CLUSTER_NAME>-master-*" \
@@ -165,86 +165,86 @@ aws ec2 describe-instances \
   --output text
 ```
 
-## 测试结果验证
+## Test Result Verification
 
-### 成功标准检查清单
-**测试用例期待结果**: 验证日志收集功能在安装失败时正常工作
+### Success Criteria Checklist
+**Test Case Expected Result**: Verify log collection functionality works properly when installation fails
 
-✅ **必须满足的条件**:
-1. **日志收集成功**: 能够成功收集到引导节点的日志
-2. **Journal日志存在**: 至少包含一个控制平面子目录的journal日志
-3. **节点列表存在**: `resources/nodes.list`文件存在并包含预期节点列表
-4. **串行日志收集** (4.11+): bootstrap和所有可用控制平面节点的串行日志被收集
+✅ **Must Meet Conditions**:
+1. **Log Collection Successful**: Able to successfully collect bootstrap node logs
+2. **Journal Logs Exist**: Contains journal logs from at least one control plane subdirectory
+3. **Node List Exists**: `resources/nodes.list` file exists and contains expected node list
+4. **Serial Log Collection** (4.11+): Bootstrap and all available control plane node serial logs collected
 
-### 验证命令
+### Verification Commands
 ```bash
-# 检查日志包完整性
+# Check log bundle integrity
 tar -tf log-bundle.tar.gz | head -20
 
-# 验证必要文件存在
-find . -name "journal" -type d | wc -l  # 应该 > 0
-find . -name "nodes.list" | wc -l       # 应该 > 0
-find . -name "serial" -type d | wc -l   # 4.11+ 应该 > 0
+# Verify required files exist
+find . -name "journal" -type d | wc -l  # Should be > 0
+find . -name "nodes.list" | wc -l       # Should be > 0
+find . -name "serial" -type d | wc -l   # 4.11+ Should be > 0
 
-# 检查日志文件大小
+# Check log file sizes
 du -sh */journal/ 2>/dev/null
 du -sh */serial/ 2>/dev/null  # 4.11+
 
-# 验证节点列表内容
+# Verify node list content
 cat */resources/nodes.list
 ```
 
-### 测试结果判定
-- **✅ PASS**: 所有必须条件都满足
-- **❌ FAIL**: 缺少任何必须条件
+### Test Result Determination
+- **✅ PASS**: All must-meet conditions are satisfied
+- **❌ FAIL**: Any must-meet condition is missing
 
-## 清理步骤
+## Cleanup Steps
 ```bash
-# 销毁集群
+# Destroy cluster
 openshift-install destroy cluster --dir .
 
-# 清理目录
+# Clean up directory
 cd ..
 rm -rf test-bootstrap-failure
 ```
 
-## 故障排除
+## Troubleshooting
 
-### SSH连接问题
+### SSH Connection Issues
 ```bash
-# 检查SSH Agent
+# Check SSH Agent
 ssh-add -l
 
-# 测试连接
+# Test connection
 ssh -A core@<BOOTSTRAP_IP> 'echo "Connection OK"'
 ```
 
-### 找不到IP地址
+### Cannot Find IP Address
 ```bash
-# 检查所有实例
+# Check all instances
 aws ec2 describe-instances \
   --filters "Name=tag:Name,Values=<CLUSTER_NAME>-*" \
   --query 'Reservations[*].Instances[*].[InstanceId,State.Name,PublicIpAddress,PrivateIpAddress]' \
   --output table
 ```
 
-### 日志收集失败
+### Log Collection Failed
 ```bash
-# 手动执行
+# Manual execution
 ssh -A core@<BOOTSTRAP_IP>
 sudo /usr/local/bin/installer-gather.sh <MASTER1_IP> <MASTER2_IP> <MASTER3_IP>
 ```
 
-## 测试用例总结
+## Test Case Summary
 
 **OCP-23394**: `[ipi-on-aws] collect logs from a cluster that failed to bootstrap running installer on linux`
 
-**测试目标**: 验证在OpenShift集群安装过程中，当引导失败时能够正确收集调试日志和故障排除信息。
+**Test Objective**: Verify the ability to correctly collect debugging logs and troubleshooting information when OpenShift cluster installation bootstrap fails.
 
-**关键测试点**:
-1. **中断时机**: 在bootstrap成功但安装未完成时中断
-2. **日志收集**: 验证`openshift-install gather bootstrap`命令功能
-3. **日志完整性**: 确保收集的日志包含必要的调试信息
-4. **故障排除**: 验证日志收集工具在异常情况下正常工作
+**Key Test Points**:
+1. **Interruption Timing**: Interrupt when bootstrap succeeds but installation is incomplete
+2. **Log Collection**: Verify `openshift-install gather bootstrap` command functionality
+3. **Log Completeness**: Ensure collected logs contain necessary debugging information
+4. **Troubleshooting**: Verify log collection tools work properly under abnormal conditions
 
-**实际应用价值**: 这个测试验证的功能对于生产环境的故障诊断和问题排查非常重要，确保在集群安装失败时能够收集到足够的调试信息。
+**Real-world Application Value**: This test validates functionality that is very important for production environment fault diagnosis and problem troubleshooting, ensuring sufficient debugging information can be collected when cluster installation fails.

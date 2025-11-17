@@ -1,25 +1,25 @@
 #!/bin/bash
 
-# OCP-29781 完整测试流程脚本
-# 在共享VPC中创建两个OpenShift集群，使用不同的隔离CIDR块
+# OCP-29781 Complete Test Workflow Script
+# Create two OpenShift clusters in shared VPC with different isolated CIDR blocks
 
 set -euo pipefail
 
-# 配置变量
+# Configuration variables
 VPC_STACK_NAME="weli-test-vpc"
 CLUSTER1_NAME="weli-test-a"
 CLUSTER2_NAME="weli-test-b"
 AWS_REGION="us-east-1"
 VPC_ID="vpc-06230a0fab9777f55"
 
-# 颜色输出
+# Color output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# 日志函数
+# Logging functions
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
 }
@@ -36,216 +36,216 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# 检查前置条件
+# Check prerequisites
 check_prerequisites() {
-    log_info "检查前置条件..."
+    log_info "Checking prerequisites..."
     
-    # 检查必要的工具
+    # Check required tools
     for tool in aws openshift-install jq; do
         if ! command -v $tool &> /dev/null; then
-            log_error "$tool 未安装或不在PATH中"
+            log_error "$tool is not installed or not in PATH"
             exit 1
         fi
     done
     
-    # 检查AWS凭据
+    # Check AWS credentials
     if ! aws sts get-caller-identity &> /dev/null; then
-        log_error "AWS凭据未配置，请运行 'aws configure'"
+        log_error "AWS credentials not configured, please run 'aws configure'"
         exit 1
     fi
     
-    # 检查VPC是否存在
+    # Check if VPC exists
     if ! aws ec2 describe-vpcs --region "${AWS_REGION}" --vpc-ids "${VPC_ID}" &> /dev/null; then
-        log_error "VPC ${VPC_ID} 不存在或不可访问"
+        log_error "VPC ${VPC_ID} does not exist or is not accessible"
         exit 1
     fi
     
-    log_success "前置条件检查通过"
+    log_success "Prerequisites check passed"
 }
 
-# 创建集群1
+# Create cluster 1
 create_cluster1() {
-    log_info "创建集群1: ${CLUSTER1_NAME}"
+    log_info "Creating cluster 1: ${CLUSTER1_NAME}"
     
-    # 创建安装目录
+    # Create installation directory
     mkdir -p cluster1-install
     cp install-config-cluster1.yaml cluster1-install/install-config.yaml
     
-    # 创建集群
-    log_info "开始创建集群1..."
+    # Create cluster
+    log_info "Starting cluster 1 creation..."
     openshift-install create cluster --dir=cluster1-install
     
     if [[ $? -eq 0 ]]; then
-        log_success "集群1创建完成"
+        log_success "Cluster 1 creation completed"
     else
-        log_error "集群1创建失败"
+        log_error "Cluster 1 creation failed"
         exit 1
     fi
 }
 
-# 创建集群2
+# Create cluster 2
 create_cluster2() {
-    log_info "创建集群2: ${CLUSTER2_NAME}"
+    log_info "Creating cluster 2: ${CLUSTER2_NAME}"
     
-    # 创建安装目录
+    # Create installation directory
     mkdir -p cluster2-install
     cp install-config-cluster2.yaml cluster2-install/install-config.yaml
     
-    # 创建集群
-    log_info "开始创建集群2..."
+    # Create cluster
+    log_info "Starting cluster 2 creation..."
     openshift-install create cluster --dir=cluster2-install
     
     if [[ $? -eq 0 ]]; then
-        log_success "集群2创建完成"
+        log_success "Cluster 2 creation completed"
     else
-        log_error "集群2创建失败"
+        log_error "Cluster 2 creation failed"
         exit 1
     fi
 }
 
-# 验证集群健康状态
+# Verify cluster health status
 verify_clusters() {
-    log_info "验证集群健康状态..."
+    log_info "Verifying cluster health status..."
     
-    # 验证集群1
-    log_info "验证集群1..."
+    # Verify cluster 1
+    log_info "Verifying cluster 1..."
     export KUBECONFIG=cluster1-install/auth/kubeconfig
     if oc get nodes &> /dev/null; then
-        log_success "集群1节点状态:"
+        log_success "Cluster 1 node status:"
         oc get nodes
     else
-        log_error "集群1验证失败"
+        log_error "Cluster 1 verification failed"
         return 1
     fi
     
-    # 验证集群2
-    log_info "验证集群2..."
+    # Verify cluster 2
+    log_info "Verifying cluster 2..."
     export KUBECONFIG=cluster2-install/auth/kubeconfig
     if oc get nodes &> /dev/null; then
-        log_success "集群2节点状态:"
+        log_success "Cluster 2 node status:"
         oc get nodes
     else
-        log_error "集群2验证失败"
+        log_error "Cluster 2 verification failed"
         return 1
     fi
 }
 
-# 验证安全组配置
+# Verify security group configuration
 verify_security_groups() {
-    log_info "验证安全组配置..."
+    log_info "Verifying security group configuration..."
     
-    # 获取集群1的infraID
+    # Get cluster 1 infraID
     CLUSTER1_INFRA_ID=$(cat cluster1-install/metadata.json | jq -r .infraID)
-    log_info "集群1 infraID: ${CLUSTER1_INFRA_ID}"
+    log_info "Cluster 1 infraID: ${CLUSTER1_INFRA_ID}"
     
-    # 获取集群1的所有安全组
-    log_info "集群1安全组:"
+    # Get all security groups for cluster 1
+    log_info "Cluster 1 security groups:"
     aws ec2 describe-instances \
         --region "${AWS_REGION}" \
         --filters "Name=tag:kubernetes.io/cluster/${CLUSTER1_INFRA_ID},Values=owned" \
         | jq -r '.Reservations[].Instances[].SecurityGroups[].GroupId' | sort | uniq
     
-    # 获取集群2的infraID
+    # Get cluster 2 infraID
     CLUSTER2_INFRA_ID=$(cat cluster2-install/metadata.json | jq -r .infraID)
-    log_info "集群2 infraID: ${CLUSTER2_INFRA_ID}"
+    log_info "Cluster 2 infraID: ${CLUSTER2_INFRA_ID}"
     
-    # 获取集群2的所有安全组
-    log_info "集群2安全组:"
+    # Get all security groups for cluster 2
+    log_info "Cluster 2 security groups:"
     aws ec2 describe-instances \
         --region "${AWS_REGION}" \
         --filters "Name=tag:kubernetes.io/cluster/${CLUSTER2_INFRA_ID},Values=owned" \
         | jq -r '.Reservations[].Instances[].SecurityGroups[].GroupId' | sort | uniq
 }
 
-# 验证网络隔离
+# Verify network isolation
 verify_network_isolation() {
-    log_info "验证网络隔离..."
+    log_info "Verifying network isolation..."
     
-    # 获取集群1的master节点IP
+    # Get cluster 1 master node IP
     export KUBECONFIG=cluster1-install/auth/kubeconfig
     CLUSTER1_MASTER_IP=$(oc get nodes -l node-role.kubernetes.io/master -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
     
-    # 获取集群2的master节点IP
+    # Get cluster 2 master node IP
     export KUBECONFIG=cluster2-install/auth/kubeconfig
     CLUSTER2_MASTER_IP=$(oc get nodes -l node-role.kubernetes.io/master -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
     
-    log_info "集群1 master IP: ${CLUSTER1_MASTER_IP}"
-    log_info "集群2 master IP: ${CLUSTER2_MASTER_IP}"
+    log_info "Cluster 1 master IP: ${CLUSTER1_MASTER_IP}"
+    log_info "Cluster 2 master IP: ${CLUSTER2_MASTER_IP}"
     
-    # 注意：实际的网络隔离测试需要从bastion host执行
-    log_warning "网络隔离测试需要从bastion host执行ping命令"
-    log_info "预期结果：集群间应该无法通信（100% packet loss）"
+    # Note: actual network isolation testing needs to be executed from bastion host
+    log_warning "Network isolation testing needs to execute ping commands from bastion host"
+    log_info "Expected result: clusters should not be able to communicate (100% packet loss)"
 }
 
-# 创建bastion host
+# Create bastion hosts
 create_bastion_hosts() {
-    log_info "创建bastion host..."
+    log_info "Creating bastion hosts..."
     
-    # 获取公共子网ID
+    # Get public subnet IDs
     CLUSTER1_PUBLIC_SUBNET="subnet-092a3f51f56c64eff"
     CLUSTER2_PUBLIC_SUBNET="subnet-0de71774eb1265810"
     
-    # 创建集群1的bastion
-    log_info "创建集群1的bastion host..."
+    # Create bastion for cluster 1
+    log_info "Creating bastion host for cluster 1..."
     ../../tools/create-bastion-host.sh "${VPC_ID}" "${CLUSTER1_PUBLIC_SUBNET}" "${CLUSTER1_NAME}"
     
-    # 创建集群2的bastion
-    log_info "创建集群2的bastion host..."
+    # Create bastion for cluster 2
+    log_info "Creating bastion host for cluster 2..."
     ../../tools/create-bastion-host.sh "${VPC_ID}" "${CLUSTER2_PUBLIC_SUBNET}" "${CLUSTER2_NAME}"
 }
 
-# 清理资源
+# Cleanup resources
 cleanup() {
-    log_info "清理资源..."
+    log_info "Cleaning up resources..."
     
-    # 销毁集群1
+    # Destroy cluster 1
     if [[ -d "cluster1-install" ]]; then
-        log_info "销毁集群1..."
+        log_info "Destroying cluster 1..."
         openshift-install destroy cluster --dir=cluster1-install
     fi
     
-    # 销毁集群2
+    # Destroy cluster 2
     if [[ -d "cluster2-install" ]]; then
-        log_info "销毁集群2..."
+        log_info "Destroying cluster 2..."
         openshift-install destroy cluster --dir=cluster2-install
     fi
     
-    # 销毁VPC
-    log_info "销毁VPC堆栈..."
+    # Destroy VPC
+    log_info "Destroying VPC stack..."
     aws cloudformation delete-stack --region "${AWS_REGION}" --stack-name "${VPC_STACK_NAME}"
     
-    log_success "清理完成"
+    log_success "Cleanup completed"
 }
 
-# 显示使用说明
+# Display usage information
 show_usage() {
     cat << EOF
-OCP-29781 测试流程完成！
+OCP-29781 Test workflow completed!
 
-测试结果：
-- ✅ VPC创建成功
-- ✅ 子网标签应用成功
-- ✅ 集群1创建成功 (${CLUSTER1_NAME})
-- ✅ 集群2创建成功 (${CLUSTER2_NAME})
-- ✅ 网络隔离验证
+Test results:
+- ✅ VPC creation successful
+- ✅ Subnet tag application successful
+- ✅ Cluster 1 creation successful (${CLUSTER1_NAME})
+- ✅ Cluster 2 creation successful (${CLUSTER2_NAME})
+- ✅ Network isolation verified
 
-下一步操作：
-1. 检查集群节点状态
-2. 验证安全组配置
-3. 测试网络隔离
-4. 运行应用程序测试
+Next steps:
+1. Check cluster node status
+2. Verify security group configuration
+3. Test network isolation
+4. Run application tests
 
-清理资源：
+Cleanup resources:
 ./run-ocp29781-test.sh cleanup
 
 EOF
 }
 
-# 主函数
+# Main function
 main() {
     case "${1:-test}" in
         "test")
-            log_info "开始OCP-29781完整测试流程"
+            log_info "Starting OCP-29781 complete test workflow"
             check_prerequisites
             create_cluster1
             create_cluster2
@@ -254,19 +254,19 @@ main() {
             verify_network_isolation
             create_bastion_hosts
             show_usage
-            log_success "OCP-29781测试流程完成！"
+            log_success "OCP-29781 test workflow completed!"
             ;;
         "cleanup")
             cleanup
             ;;
         *)
-            echo "用法: $0 [test|cleanup]"
-            echo "  test    - 运行完整测试流程"
-            echo "  cleanup - 清理所有资源"
+            echo "Usage: $0 [test|cleanup]"
+            echo "  test    - Run complete test workflow"
+            echo "  cleanup - Clean up all resources"
             exit 1
             ;;
     esac
 }
 
-# 运行主函数
+# Run main function
 main "$@"

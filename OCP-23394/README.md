@@ -1,227 +1,227 @@
-# OCP-23394: 收集引导失败集群的日志
+# OCP-23394: Collect Logs from Bootstrap Failed Cluster
 
-## 测试用例描述
+## Test Case Description
 **OCP-23394**: `[ipi-on-aws] collect logs from a cluster that failed to bootstrap running installer on linux`
 
-这个测试用例验证在 OpenShift 集群安装过程中，当引导失败时能够正确收集调试日志和故障排除信息。
+This test case verifies the ability to correctly collect debugging logs and troubleshooting information when OpenShift cluster installation bootstrap fails.
 
-## 测试目标
-- 验证在安装失败时能够收集引导节点的日志
-- 确保日志收集工具在异常情况下正常工作
-- 验证收集的日志包含必要的调试信息
+## Test Objectives
+- Verify ability to collect bootstrap node logs when installation fails
+- Ensure log collection tools work properly under abnormal conditions
+- Verify collected logs contain necessary debugging information
 
-## 前置条件
-- Linux 环境
-- 已配置 AWS 凭证
-- 已安装 `openshift-install` 工具
-- 已配置 SSH 密钥
+## Prerequisites
+- Linux environment
+- AWS credentials configured
+- `openshift-install` tool installed
+- SSH key configured
 
-## 详细测试步骤
+## Detailed Test Steps
 
-### 步骤 1: 设置 SSH Agent
+### Step 1: Set up SSH Agent
 ```bash
-# 启动 SSH Agent
+# Start SSH Agent
 eval `ssh-agent -s`
 
-# 添加 SSH 密钥
+# Add SSH key
 ssh-add ~/.ssh/id_rsa
-# 或者添加您的 SSH 密钥文件
+# Or add your SSH key file
 ssh-add /path/to/your/ssh-key
 ```
 
-**验证 SSH Agent 设置**:
+**Verify SSH Agent Setup**:
 ```bash
-# 检查 SSH Agent 状态
+# Check SSH Agent status
 ssh-add -l
 ```
 
-### 步骤 2: 启动集群安装
+### Step 2: Start Cluster Installation
 ```bash
-# 创建工作目录
+# Create working directory
 mkdir -p test-bootstrap-failure
 cd test-bootstrap-failure
 
-# 生成 install-config.yaml
+# Generate install-config.yaml
 openshift-install create install-config --dir .
 
-# 启动集群安装
+# Start cluster installation
 openshift-install create cluster --dir .
 ```
 
-**重要**: 保持终端窗口打开，监控安装输出。
+**Important**: Keep terminal window open and monitor installation output.
 
-### 步骤 3: 监控安装过程并选择中断时机
+### Step 3: Monitor Installation Process and Choose Interruption Timing
 
-#### 方法 A: 监控日志消息中断
-在安装过程中，监控以下关键消息：
+#### Method A: Monitor Log Messages and Interrupt
+During installation, monitor for the following key message:
 
 ```bash
-# 当看到以下消息时，立即按 Ctrl+C 中断：
+# When you see the following message, immediately press Ctrl+C to interrupt:
 "added bootstrap-success: Required control plane pods have been created"
 ```
 
-#### 方法 B: 分阶段中断
+#### Method B: Staged Interruption
 ```bash
-# 在另一个终端窗口中，等待 bootstrap 完成
+# In another terminal window, wait for bootstrap to complete
 openshift-install wait-for bootstrap-complete --dir .
 
-# 然后在 install-complete 阶段中断
+# Then interrupt during install-complete phase
 openshift-install wait-for install-complete --dir .
-# 按 Ctrl+C 中断安装过程
+# Press Ctrl+C to interrupt installation process
 ```
 
-### 步骤 4: 收集引导日志
+### Step 4: Collect Bootstrap Logs
 
-#### 方法 1: 使用目录参数
+#### Method 1: Use Directory Parameter
 ```bash
-# 使用工作目录收集日志
+# Use working directory to collect logs
 openshift-install gather bootstrap --dir .
 ```
 
-#### 方法 2: 使用具体 IP 地址
+#### Method 2: Use Specific IP Addresses
 ```bash
-# 从 AWS 控制台获取以下信息：
-# - Bootstrap 节点公网 IP
-# - Master 节点内网 IP 地址
+# Get the following information from AWS console:
+# - Bootstrap node public IP
+# - Master node private IP addresses
 
-# 使用具体 IP 地址收集日志
+# Use specific IP addresses to collect logs
 openshift-install gather bootstrap \
   --bootstrap <BOOTSTRAP_PUBLIC_IP> \
   --master "<MASTER1_IP> <MASTER2_IP> <MASTER3_IP>"
 ```
 
-**示例**:
+**Example**:
 ```bash
 openshift-install gather bootstrap \
   --bootstrap 54.238.178.100 \
   --master "10.0.134.134 10.0.148.230 10.0.166.246"
 ```
 
-### 步骤 5: 执行日志收集命令
-根据步骤 4 的输出，执行相应的 SSH 命令：
+### Step 5: Execute Log Collection Commands
+Follow the output from Step 4 to execute the corresponding SSH commands:
 
 ```bash
-# 执行日志收集脚本
+# Execute log collection script
 ssh -A core@<BOOTSTRAP_IP> '/usr/local/bin/installer-gather.sh <MASTER1_IP> <MASTER2_IP> <MASTER3_IP>'
 
-# 下载日志包
+# Download log bundle
 scp core@<BOOTSTRAP_IP>:~/log-bundle.tar.gz .
 ```
 
-**示例**:
+**Example**:
 ```bash
 ssh -A core@54.238.178.100 '/usr/local/bin/installer-gather.sh 10.0.134.134 10.0.148.230 10.0.166.246'
 scp core@54.238.178.100:~/log-bundle.tar.gz .
 ```
 
-### 步骤 6: 解压并检查日志内容
+### Step 6: Extract and Check Log Content
 ```bash
-# 解压日志包
+# Extract log bundle
 tar xvf log-bundle.tar.gz
 
-# 检查日志目录结构
+# Check log directory structure
 ls -la
 
-# 检查控制平面节点日志
+# Check control plane node logs
 ls -la */journal/
 
-# 检查节点列表
+# Check node list
 cat */resources/nodes.list
 ```
 
-### 步骤 7: 验证日志内容 (OpenShift 4.11+)
+### Step 7: Verify Log Content (OpenShift 4.11+)
 ```bash
-# 检查串行日志 (4.11 新功能)
+# Check serial logs (4.11 new feature)
 ls -la */serial/
 
-# 验证 bootstrap 节点串行日志
+# Verify bootstrap node serial logs
 ls -la */serial/bootstrap/
 
-# 验证控制平面节点串行日志
+# Verify control plane node serial logs
 ls -la */serial/master-*/
 ```
 
-## 预期结果
+## Expected Results
 
-### 成功标准
-1. **日志收集成功**: 能够成功收集到引导节点的日志
-2. **日志内容完整**: 至少包含一个控制平面子目录的 journal 日志
-3. **节点列表存在**: `resources/nodes.list` 文件存在并包含预期节点列表
-4. **串行日志收集** (4.11+): bootstrap 和所有可用控制平面节点的串行日志被收集
+### Success Criteria
+1. **Log Collection Successful**: Able to successfully collect bootstrap node logs
+2. **Log Content Complete**: Contains journal logs from at least one control plane subdirectory
+3. **Node List Exists**: `resources/nodes.list` file exists and contains expected node list
+4. **Serial Log Collection** (4.11+): Bootstrap and all available control plane node serial logs collected
 
-### 验证检查点
+### Verification Checkpoints
 ```bash
-# 检查日志包是否包含必要文件
+# Check if log bundle contains required files
 find . -name "journal" -type d
 find . -name "nodes.list"
 find . -name "serial" -type d  # 4.11+
 
-# 检查日志文件大小
+# Check log file sizes
 du -sh */journal/
 du -sh */serial/  # 4.11+
 ```
 
-## 故障排除
+## Troubleshooting
 
-### 常见问题
+### Common Issues
 
-#### 1. SSH 连接失败
+#### 1. SSH Connection Failed
 ```bash
-# 检查 SSH Agent
+# Check SSH Agent
 ssh-add -l
 
-# 重新添加密钥
+# Re-add key
 ssh-add ~/.ssh/id_rsa
 
-# 测试 SSH 连接
+# Test SSH connection
 ssh -A core@<BOOTSTRAP_IP> 'echo "SSH connection successful"'
 ```
 
-#### 2. 无法找到 Bootstrap 节点 IP
+#### 2. Cannot Find Bootstrap Node IP
 ```bash
-# 从 AWS 控制台获取
+# Get from AWS console
 aws ec2 describe-instances \
   --filters "Name=tag:Name,Values=<CLUSTER_NAME>-bootstrap" \
   --query 'Reservations[*].Instances[*].[PublicIpAddress,PrivateIpAddress]' \
   --output table
 ```
 
-#### 3. 日志收集脚本执行失败
+#### 3. Log Collection Script Execution Failed
 ```bash
-# 手动执行收集脚本
+# Manual execution of collection script
 ssh -A core@<BOOTSTRAP_IP>
 sudo /usr/local/bin/installer-gather.sh <MASTER1_IP> <MASTER2_IP> <MASTER3_IP>
 ```
 
-### 调试命令
+### Debug Commands
 ```bash
-# 检查集群状态
+# Check cluster status
 openshift-install wait-for bootstrap-complete --dir . --log-level debug
 
-# 检查节点状态
+# Check node status
 aws ec2 describe-instances \
   --filters "Name=tag:Name,Values=<CLUSTER_NAME>-*" \
   --query 'Reservations[*].Instances[*].[InstanceId,State.Name,PublicIpAddress,PrivateIpAddress]' \
   --output table
 ```
 
-## 清理步骤
+## Cleanup Steps
 ```bash
-# 销毁集群
+# Destroy cluster
 openshift-install destroy cluster --dir .
 
-# 清理工作目录
+# Clean up working directory
 cd ..
 rm -rf test-bootstrap-failure
 ```
 
-## 注意事项
-1. **时机选择**: 确保在 bootstrap 成功但安装未完成时中断
-2. **网络访问**: 确保能够访问 bootstrap 节点的公网 IP
-3. **SSH 密钥**: 确保 SSH 密钥已正确配置并添加到 agent
-4. **日志大小**: 日志包可能较大，确保有足够的磁盘空间
-5. **时间窗口**: 中断时机很关键，需要快速响应
+## Notes
+1. **Timing Selection**: Ensure interruption occurs when bootstrap succeeds but installation is incomplete
+2. **Network Access**: Ensure ability to access bootstrap node public IP
+3. **SSH Key**: Ensure SSH key is correctly configured and added to agent
+4. **Log Size**: Log bundle may be large, ensure sufficient disk space
+5. **Time Window**: Interruption timing is critical and requires quick response
 
-## 相关文档
-- [OpenShift 安装文档](https://docs.openshift.com/container-platform/latest/installing/installing_aws/installing-aws-installer.html)
-- [故障排除指南](https://docs.openshift.com/container-platform/latest/support/troubleshooting/troubleshooting-installations.html)
+## Related Documentation
+- [OpenShift Installation Documentation](https://docs.openshift.com/container-platform/latest/installing/installing_aws/installing-aws-installer.html)
+- [Troubleshooting Guide](https://docs.openshift.com/container-platform/latest/support/troubleshooting/troubleshooting-installations.html)

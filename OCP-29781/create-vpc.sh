@@ -1,22 +1,22 @@
 #!/bin/bash
 
-# OCP-29781 VPC创建脚本
-# 使用多CIDR模板创建VPC和子网
+# OCP-29781 VPC Creation Script
+# Create VPC and subnets using multi-CIDR template
 
 set -euo pipefail
 
-# 默认配置变量
+# Default configuration variables
 DEFAULT_STACK_NAME="ocp29781-vpc-$(date +%s)"
 DEFAULT_AWS_REGION="us-east-2"
 DEFAULT_VPC_CIDR="10.0.0.0/16"
 DEFAULT_VPC_CIDR2="10.134.0.0/16"
 DEFAULT_VPC_CIDR3="10.190.0.0/16"
 
-# 获取脚本所在目录
+# Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATE_FILE="${SCRIPT_DIR}/01_vpc_multiCidr.yaml"
 
-# 解析命令行参数
+# Parse command line arguments
 STACK_NAME="${DEFAULT_STACK_NAME}"
 AWS_REGION="${DEFAULT_AWS_REGION}"
 VPC_CIDR="${DEFAULT_VPC_CIDR}"
@@ -24,30 +24,30 @@ VPC_CIDR2="${DEFAULT_VPC_CIDR2}"
 VPC_CIDR3="${DEFAULT_VPC_CIDR3}"
 SHOW_HELP=false
 
-# 显示帮助信息
+# Display help information
 show_help() {
     cat << EOF
-OCP-29781 VPC创建脚本
+OCP-29781 VPC Creation Script
 
-用法: $0 [选项]
+Usage: $0 [options]
 
-选项:
-    -n, --name NAME          指定VPC堆栈名称 (默认: ${DEFAULT_STACK_NAME})
-    -r, --region REGION     指定AWS区域 (默认: ${DEFAULT_AWS_REGION})
-    -c, --cidr CIDR         指定主VPC CIDR (默认: ${DEFAULT_VPC_CIDR})
-    -c2, --cidr2 CIDR2      指定第二个VPC CIDR (默认: ${DEFAULT_VPC_CIDR2})
-    -c3, --cidr3 CIDR3      指定第三个VPC CIDR (默认: ${DEFAULT_VPC_CIDR3})
-    -h, --help              显示此帮助信息
+Options:
+    -n, --name NAME          Specify VPC stack name (default: ${DEFAULT_STACK_NAME})
+    -r, --region REGION     Specify AWS region (default: ${DEFAULT_AWS_REGION})
+    -c, --cidr CIDR         Specify primary VPC CIDR (default: ${DEFAULT_VPC_CIDR})
+    -c2, --cidr2 CIDR2      Specify second VPC CIDR (default: ${DEFAULT_VPC_CIDR2})
+    -c3, --cidr3 CIDR3      Specify third VPC CIDR (default: ${DEFAULT_VPC_CIDR3})
+    -h, --help              Display this help information
 
-示例:
-    $0                                    # 使用默认配置
-    $0 -n my-vpc -r us-west-2            # 指定名称和区域
-    $0 --name test-vpc --cidr 10.1.0.0/16 # 指定名称和CIDR
+Examples:
+    $0                                    # Use default configuration
+    $0 -n my-vpc -r us-west-2            # Specify name and region
+    $0 --name test-vpc --cidr 10.1.0.0/16 # Specify name and CIDR
 
 EOF
 }
 
-# 解析命令行参数
+# Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
         -n|--name)
@@ -75,27 +75,27 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         *)
-            echo "未知选项: $1"
+            echo "Unknown option: $1"
             show_help
             exit 1
             ;;
     esac
 done
 
-# 显示帮助信息并退出
+# Display help and exit
 if [[ "${SHOW_HELP}" == "true" ]]; then
     show_help
     exit 0
 fi
 
-# 颜色输出
+# Color output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# 日志函数
+# Logging functions
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
 }
@@ -112,41 +112,41 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# 检查前置条件
+# Check prerequisites
 check_prerequisites() {
-    log_info "检查前置条件..."
+    log_info "Checking prerequisites..."
     
-    # 检查AWS CLI
+    # Check AWS CLI
     if ! command -v aws &> /dev/null; then
-        log_error "AWS CLI未安装"
+        log_error "AWS CLI is not installed"
         exit 1
     fi
     
-    # 检查AWS凭据
+    # Check AWS credentials
     if ! aws sts get-caller-identity &> /dev/null; then
-        log_error "AWS凭据未配置，请运行 'aws configure'"
+        log_error "AWS credentials not configured, please run 'aws configure'"
         exit 1
     fi
     
-    # 检查模板文件
+    # Check template file
     if [[ ! -f "${TEMPLATE_FILE}" ]]; then
-        log_error "模板文件不存在: ${TEMPLATE_FILE}"
+        log_error "Template file does not exist: ${TEMPLATE_FILE}"
         exit 1
     fi
     
-    log_success "前置条件检查通过"
+    log_success "Prerequisites check passed"
 }
 
-# 创建VPC堆栈
+# Create VPC stack
 create_vpc_stack() {
-    log_info "创建VPC堆栈: ${STACK_NAME}"
-    log_info "使用模板: ${TEMPLATE_FILE}"
-    log_info "VPC CIDR配置:"
-    log_info "  主CIDR: ${VPC_CIDR}"
-    log_info "  第二CIDR: ${VPC_CIDR2}"
-    log_info "  第三CIDR: ${VPC_CIDR3}"
+    log_info "Creating VPC stack: ${STACK_NAME}"
+    log_info "Using template: ${TEMPLATE_FILE}"
+    log_info "VPC CIDR configuration:"
+    log_info "  Primary CIDR: ${VPC_CIDR}"
+    log_info "  Second CIDR: ${VPC_CIDR2}"
+    log_info "  Third CIDR: ${VPC_CIDR3}"
     
-    # 创建CloudFormation堆栈
+    # Create CloudFormation stack
     aws cloudformation create-stack \
         --region "${AWS_REGION}" \
         --stack-name "${STACK_NAME}" \
@@ -164,34 +164,34 @@ create_vpc_stack() {
             Key=StackName,Value="${STACK_NAME}"
     
     if [[ $? -eq 0 ]]; then
-        log_success "VPC堆栈创建已启动"
+        log_success "VPC stack creation initiated"
     else
-        log_error "VPC堆栈创建失败"
+        log_error "VPC stack creation failed"
         exit 1
     fi
 }
 
-# 等待堆栈创建完成
+# Wait for stack creation to complete
 wait_for_stack_completion() {
-    log_info "等待堆栈创建完成..."
-    log_info "这可能需要几分钟时间..."
+    log_info "Waiting for stack creation to complete..."
+    log_info "This may take a few minutes..."
     
     aws cloudformation wait stack-create-complete --region "${AWS_REGION}" --stack-name "${STACK_NAME}"
     
     if [[ $? -eq 0 ]]; then
-        log_success "堆栈创建完成"
+        log_success "Stack creation completed"
     else
-        log_error "堆栈创建失败或超时"
-        log_info "请检查CloudFormation控制台获取详细信息"
+        log_error "Stack creation failed or timed out"
+        log_info "Please check CloudFormation console for details"
         exit 1
     fi
 }
 
-# 获取堆栈输出
+# Get stack outputs
 get_stack_outputs() {
-    log_info "获取堆栈输出信息..."
+    log_info "Retrieving stack output information..."
     
-    # 获取VPC ID
+    # Get VPC ID
     local vpc_id
     vpc_id=$(aws cloudformation describe-stacks \
         --region "${AWS_REGION}" \
@@ -203,43 +203,43 @@ get_stack_outputs() {
         log_success "VPC ID: ${vpc_id}"
         echo "VPC_ID=${vpc_id}" > vpc-info.env
     else
-        log_warning "无法获取VPC ID"
+        log_warning "Cannot get VPC ID"
     fi
     
-    # 获取子网信息
-    log_info "获取子网信息..."
+    # Get subnet information
+    log_info "Retrieving subnet information..."
     aws cloudformation describe-stacks \
         --region "${AWS_REGION}" \
         --stack-name "${STACK_NAME}" \
         --query 'Stacks[0].Outputs[?contains(OutputKey, `Subnet`)].{Key:OutputKey,Value:OutputValue}' \
         --output table
     
-    # 保存堆栈输出到文件
+    # Save stack output to file
     aws cloudformation describe-stacks \
         --region "${AWS_REGION}" \
         --stack-name "${STACK_NAME}" \
         --output json > stack-output.json
     
-    log_success "堆栈输出已保存到 stack-output.json"
+    log_success "Stack output saved to stack-output.json"
 }
 
-# 验证创建的资源
+# Validate created resources
 validate_resources() {
-    log_info "验证创建的资源..."
+    log_info "Validating created resources..."
     
-    # 从环境文件读取VPC ID
+    # Read VPC ID from environment file
     if [[ -f "vpc-info.env" ]]; then
         source vpc-info.env
-        log_info "验证VPC: ${VPC_ID}"
+        log_info "Validating VPC: ${VPC_ID}"
         
         if aws ec2 describe-vpcs --region "${AWS_REGION}" --vpc-ids "${VPC_ID}" &> /dev/null; then
-            log_success "VPC存在且可访问"
+            log_success "VPC exists and is accessible"
         else
-            log_error "VPC验证失败"
+            log_error "VPC validation failed"
             return 1
         fi
         
-        # 检查子网数量
+        # Check subnet count
         local subnet_count
         subnet_count=$(aws ec2 describe-subnets \
             --region "${AWS_REGION}" \
@@ -247,70 +247,70 @@ validate_resources() {
             --query 'length(Subnets)' \
             --output text)
         
-        log_info "VPC中发现 ${subnet_count} 个子网"
+        log_info "Found ${subnet_count} subnets in VPC"
         
-        # 显示所有子网信息
+        # Display all subnet information
         aws ec2 describe-subnets \
             --region "${AWS_REGION}" \
             --filters "Name=vpc-id,Values=${VPC_ID}" \
             --query 'Subnets[*].{SubnetId:SubnetId,CidrBlock:CidrBlock,AvailabilityZone:AvailabilityZone,State:State}' \
             --output table
     else
-        log_warning "未找到VPC信息文件"
+        log_warning "VPC information file not found"
     fi
 }
 
-# 显示使用说明
+# Display usage information
 show_usage() {
-    echo "VPC创建完成！"
+    echo "VPC creation completed!"
     echo ""
-    echo "下一步操作："
-    echo "1. 检查 stack-output.json 文件获取子网ID"
-    echo "2. 更新 install-config-cluster1.yaml 和 install-config-cluster2.yaml 中的子网ID"
-    echo "3. 运行集群安装脚本"
+    echo "Next steps:"
+    echo "1. Check stack-output.json file to get subnet IDs"
+    echo "2. Update subnet IDs in install-config-cluster1.yaml and install-config-cluster2.yaml"
+    echo "3. Run cluster installation script"
     echo ""
-    echo "清理资源："
+    echo "Cleanup resources:"
     echo "aws cloudformation delete-stack --stack-name ${STACK_NAME}"
     echo ""
-    echo "堆栈名称: ${STACK_NAME}"
-    echo "VPC信息已保存到: vpc-info.env"
-    echo "堆栈输出已保存到: stack-output.json"
+    echo "Stack name: ${STACK_NAME}"
+    echo "VPC information saved to: vpc-info.env"
+    echo "Stack output saved to: stack-output.json"
 }
 
-# 主函数
+# Main function
 main() {
-    log_info "开始OCP-29781 VPC创建流程"
+    log_info "Starting OCP-29781 VPC creation process"
     
-    # 显示配置
-    log_info "配置信息:"
-    log_info "  堆栈名称: ${STACK_NAME}"
-    log_info "  模板文件: ${TEMPLATE_FILE}"
-    log_info "  AWS区域: ${AWS_REGION}"
+    # Display configuration
+    log_info "Configuration information:"
+    log_info "  Stack name: ${STACK_NAME}"
+    log_info "  Template file: ${TEMPLATE_FILE}"
+    log_info "  AWS region: ${AWS_REGION}"
     log_info "  VPC CIDR: ${VPC_CIDR}"
     log_info "  VPC CIDR2: ${VPC_CIDR2}"
     log_info "  VPC CIDR3: ${VPC_CIDR3}"
     echo
     
-    # 检查前置条件
+    # Check prerequisites
     check_prerequisites
     
-    # 创建VPC堆栈
+    # Create VPC stack
     create_vpc_stack
     
-    # 等待完成
+    # Wait for completion
     wait_for_stack_completion
     
-    # 获取输出
+    # Get outputs
     get_stack_outputs
     
-    # 验证资源
+    # Validate resources
     validate_resources
     
-    # 显示使用说明
+    # Display usage information
     show_usage
     
-    log_success "VPC创建流程完成！"
+    log_success "VPC creation process completed!"
 }
 
-# 运行主函数
+# Run main function
 main "$@"

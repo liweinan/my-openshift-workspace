@@ -1,63 +1,63 @@
-# OCP-29781 CI失败分析报告 - 正确版本
+# OCP-29781 CI Failure Analysis Report - Corrected Version
 
-## 🔍 问题概述
+## 🔍 Problem Overview
 
-基于CI日志分析，OCP-29781多CIDR测试失败的主要原因是VPC子网标签配置不正确。
+Based on CI log analysis, the main reason for OCP-29781 multi-CIDR test failure was incorrect VPC subnet tag configuration.
 
 **CI Job**: `aws-ipi-multi-cidr-arm-f14`  
-**失败时间**: 2025-09-09T14:40:36Z  
-**失败原因**: 子网标签缺失导致OpenShift安装器拒绝使用这些子网
+**Failure Time**: 2025-09-09T14:40:36Z  
+**Failure Reason**: Missing subnet tags caused OpenShift installer to reject using these subnets
 
-## 🚨 核心错误
+## 🚨 Core Error
 
 ```
 level=error msg=failed to fetch Metadata: failed to load asset "Install Config": failed to create install config: platform.aws.vpc.subnets: Forbidden: additional subnets [subnet-0139fe13fff4eeff0 subnet-08dc7ce7f6967dc2d subnet-09bafffa992546fdf subnet-0a917eee79a1949ec] without tag prefix kubernetes.io/cluster/ are found in vpc vpc-00a6f792a4739069f of provided subnets. Please add a tag kubernetes.io/cluster/unmanaged to those subnets to exclude them from cluster installation or explicitly assign roles in the install-config to provided subnets
 ```
 
-## 📋 问题详细分析
+## 📋 Detailed Problem Analysis
 
-### 1. VPC创建成功
-- ✅ CloudFormation堆栈创建成功
-- ✅ 堆栈ID: `arn:aws:cloudformation:ap-northeast-1:301721915996:stack/ci-op-4tl7yiy2-34190-vpc/7c5ae3e0-8d8a-11f0-8468-0a37c9653281`
+### 1. VPC Creation Successful
+- ✅ CloudFormation stack created successfully
+- ✅ Stack ID: `arn:aws:cloudformation:ap-northeast-1:301721915996:stack/ci-op-4tl7yiy2-34190-vpc/7c5ae3e0-8d8a-11f0-8468-0a37c9653281`
 
-### 2. 子网标签问题
-- ❌ VPC中存在未标记的子网
-- ❌ 缺少Kubernetes必需的标签
-- ❌ 子网角色未明确指定
+### 2. Subnet Tag Issues
+- ❌ Unlabeled subnets exist in VPC
+- ❌ Missing required Kubernetes labels
+- ❌ Subnet roles not explicitly specified
 
-### 3. 配置格式问题
-- ⚠️ 使用了已弃用的配置格式
+### 3. Configuration Format Issues
+- ⚠️ Using deprecated configuration format
 - ⚠️ `platform.aws.subnets` → `platform.aws.vpc.subnets`
 
-## 🛠️ 正确的修复方案
+## 🛠️ Correct Fix Solution
 
-### 1. VPC模板保持原样
-**重要**: VPC模板不应该包含cluster-specific标签，因为创建VPC时还不知道cluster name。
+### 1. Keep VPC Template Unchanged
+**Important**: VPC template should not contain cluster-specific labels because the cluster name is unknown when creating the VPC.
 
-### 2. 使用tag-subnets.sh脚本
-**解决方案**: 在VPC创建后，使用`tag-subnets.sh`脚本为子网打标签。
+### 2. Use tag-subnets.sh Script
+**Solution**: After VPC creation, use the `tag-subnets.sh` script to tag subnets.
 
 ```bash
-# 为集群1的子网打标签
+# Tag subnets for cluster1
 ../../tools/tag-subnets.sh ocp29781-vpc cluster1
 
-# 为集群2的子网打标签  
+# Tag subnets for cluster2  
 ../../tools/tag-subnets.sh ocp29781-vpc cluster2
 ```
 
-### 3. Install Config修复
+### 3. Install Config Fix
 
-**问题**: 使用已弃用的配置格式
-**解决**: 使用新的VPC子网配置格式
+**Problem**: Using deprecated configuration format
+**Solution**: Use the new VPC subnet configuration format
 
 ```yaml
-# 修复前
+# Before fix
 platform:
   aws:
     region: ap-northeast-1
     subnets: ['subnet-0001294fd6a01e6b2', 'subnet-0c1434250038d5185']
 
-# 修复后
+# After fix
 platform:
   aws:
     region: ap-northeast-1
@@ -69,12 +69,12 @@ platform:
         role: public
 ```
 
-### 4. 使用create-bastion-host.sh脚本
-**确认**: `create-bastion-host.sh`脚本确实在public subnet中创建bastion host，符合测试要求。
+### 4. Use create-bastion-host.sh Script
+**Confirmed**: The `create-bastion-host.sh` script indeed creates the bastion host in the public subnet, meeting test requirements.
 
-## 🔧 正确的测试流程
+## 🔧 Correct Test Flow
 
-### 1. 创建VPC（使用原始模板）
+### 1. Create VPC (Using Original Template)
 ```bash
 aws cloudformation create-stack \
   --stack-name ocp29781-vpc \
@@ -84,42 +84,42 @@ aws cloudformation create-stack \
     ParameterKey=VpcCidr3,ParameterValue=10.190.0.0/16
 ```
 
-### 2. 为子网打标签
+### 2. Tag Subnets
 ```bash
-# 使用tag-subnets.sh脚本
+# Use tag-subnets.sh script
 ../../tools/tag-subnets.sh ocp29781-vpc cluster1
 ../../tools/tag-subnets.sh ocp29781-vpc cluster2
 ```
 
-### 3. 创建集群
-使用正确的install-config格式创建两个集群。
+### 3. Create Clusters
+Create two clusters using the correct install-config format.
 
-### 4. 创建Bastion Host
+### 4. Create Bastion Host
 ```bash
-# 使用create-bastion-host.sh脚本
+# Use create-bastion-host.sh script
 ../../tools/create-bastion-host.sh $VPC_ID $PUBLIC_SUBNET_ID $CLUSTER_NAME
 ```
 
-## 🎯 预期结果
+## 🎯 Expected Results
 
-修复后，测试应该能够：
-1. ✅ 成功创建VPC和子网
-2. ✅ 使用tag-subnets.sh脚本为子网打标签
-3. ✅ 成功创建集群1（使用10.134.0.0/16 CIDR）
-4. ✅ 成功创建集群2（使用10.190.0.0/16 CIDR）
-5. ✅ 在public subnet中创建bastion host
-6. ✅ 验证网络隔离
-7. ✅ 验证安全组配置
+After the fix, the test should be able to:
+1. ✅ Successfully create VPC and subnets
+2. ✅ Use tag-subnets.sh script to tag subnets
+3. ✅ Successfully create cluster1 (using 10.134.0.0/16 CIDR)
+4. ✅ Successfully create cluster2 (using 10.190.0.0/16 CIDR)
+5. ✅ Create bastion host in public subnet
+6. ✅ Verify network isolation
+7. ✅ Verify security group configuration
 
-## 📊 关键修复点
+## 📊 Key Fix Points
 
-1. **VPC模板保持原样** - 不包含cluster-specific标签
-2. **使用tag-subnets.sh脚本** - 在VPC创建后为子网打标签
-3. **使用create-bastion-host.sh脚本** - 在public subnet中创建bastion
-4. **正确的install-config格式** - 使用`platform.aws.vpc.subnets`
+1. **Keep VPC Template Unchanged** - Do not include cluster-specific labels
+2. **Use tag-subnets.sh Script** - Tag subnets after VPC creation
+3. **Use create-bastion-host.sh Script** - Create bastion in public subnet
+4. **Correct install-config Format** - Use `platform.aws.vpc.subnets`
 
-## 🔗 相关链接
+## 🔗 Related Links
 
-- [CI Job日志](https://storage.googleapis.com/qe-private-deck/logs/periodic-ci-openshift-verification-tests-main-installation-nightly-4.20-aws-ipi-multi-cidr-arm-f14/1965423507990908928/build-log.txt)
-- [OpenShift VPC配置文档](https://docs.openshift.com/container-platform/latest/installing/installing_aws/installing-aws-vpc.html)
-- [AWS子网标签要求](https://docs.openshift.com/container-platform/latest/installing/installing_aws/installing-aws-vpc.html#installation-aws-vpc-tags_installing-aws-vpc)
+- [CI Job Log](https://storage.googleapis.com/qe-private-deck/logs/periodic-ci-openshift-verification-tests-main-installation-nightly-4.20-aws-ipi-multi-cidr-arm-f14/1965423507990908928/build-log.txt)
+- [OpenShift VPC Configuration Documentation](https://docs.openshift.com/container-platform/latest/installing/installing_aws/installing-aws-vpc.html)
+- [AWS Subnet Tag Requirements](https://docs.openshift.com/container-platform/latest/installing/installing_aws/installing-aws-vpc.html#installation-aws-vpc-tags_installing-aws-vpc)

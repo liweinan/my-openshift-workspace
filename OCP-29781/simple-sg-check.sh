@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 简化的安全组检查脚本
+# Simplified Security Group Check Script
 
 set -euo pipefail
 
@@ -8,7 +8,7 @@ AWS_REGION="us-east-1"
 CLUSTER1_INFRA_ID="weli-test-a-p6fbf"
 CLUSTER2_INFRA_ID="weli-test-b-2vgnm"
 
-# 颜色输出
+# Color output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -24,9 +24,9 @@ check_cluster() {
     local cluster_name=$1
     local infra_id=$2
     
-    log_info "=== 检查 ${cluster_name} (${infra_id}) ==="
+    log_info "=== Checking ${cluster_name} (${infra_id}) ==="
     
-    # 获取安全组ID
+    # Get security group IDs
     local security_groups
     security_groups=$(aws ec2 describe-instances \
         --region "${AWS_REGION}" \
@@ -34,10 +34,10 @@ check_cluster() {
         --query 'Reservations[].Instances[].SecurityGroups[].GroupId' \
         --output text | tr '\t' '\n' | sort | uniq)
     
-    log_info "安全组: ${security_groups}"
+    log_info "Security groups: ${security_groups}"
     echo
     
-    # 检查每个安全组
+    # Check each security group
     for sg_id in $security_groups; do
         check_single_sg "${sg_id}" "${infra_id}"
     done
@@ -48,9 +48,9 @@ check_single_sg() {
     local sg_id=$1
     local infra_id=$2
     
-    log_info "检查安全组: ${sg_id}"
+    log_info "Checking security group: ${sg_id}"
     
-    # 获取安全组信息
+    # Get security group information
     local sg_name
     sg_name=$(aws ec2 describe-security-groups \
         --region "${AWS_REGION}" \
@@ -65,22 +65,22 @@ check_single_sg() {
         --query 'SecurityGroups[0].Description' \
         --output text)
     
-    log_info "名称: ${sg_name}"
-    log_info "描述: ${sg_description}"
+    log_info "Name: ${sg_name}"
+    log_info "Description: ${sg_description}"
     
-    # 检查关键端口
+    # Check key ports
     if [[ "${sg_name}" == *"controlplane"* ]]; then
-        log_info "类型: Control Plane"
+        log_info "Type: Control Plane"
         check_controlplane_ports "${sg_id}"
     elif [[ "${sg_name}" == *"node"* ]]; then
-        log_info "类型: Worker Node"
+        log_info "Type: Worker Node"
         check_worker_ports "${sg_id}"
     elif [[ "${sg_name}" == *"lb"* ]]; then
-        log_info "类型: Load Balancer"
+        log_info "Type: Load Balancer"
     elif [[ "${sg_name}" == *"apiserver"* ]]; then
-        log_info "类型: API Server Load Balancer"
+        log_info "Type: API Server Load Balancer"
     else
-        log_info "类型: 其他"
+        log_info "Type: Other"
     fi
     
     echo "----------------------------------------"
@@ -89,9 +89,9 @@ check_single_sg() {
 check_controlplane_ports() {
     local sg_id=$1
     
-    log_info "Control Plane端口检查:"
+    log_info "Control Plane port check:"
     
-    # 检查6443端口
+    # Check port 6443
     local has_6443
     has_6443=$(aws ec2 describe-security-groups \
         --region "${AWS_REGION}" \
@@ -100,12 +100,12 @@ check_controlplane_ports() {
         --output text)
     
     if [[ -n "${has_6443}" ]]; then
-        log_success "  ✅ 6443/tcp (API Server) - 已配置"
+        log_success "  ✅ 6443/tcp (API Server) - configured"
     else
-        log_warning "  ⚠️  6443/tcp (API Server) - 未找到"
+        log_warning "  ⚠️  6443/tcp (API Server) - not found"
     fi
     
-    # 检查22623端口
+    # Check port 22623
     local has_22623
     has_22623=$(aws ec2 describe-security-groups \
         --region "${AWS_REGION}" \
@@ -114,12 +114,12 @@ check_controlplane_ports() {
         --output text)
     
     if [[ -n "${has_22623}" ]]; then
-        log_success "  ✅ 22623/tcp (Machine Config Server) - 已配置"
+        log_success "  ✅ 22623/tcp (Machine Config Server) - configured"
     else
-        log_warning "  ⚠️  22623/tcp (Machine Config Server) - 未找到"
+        log_warning "  ⚠️  22623/tcp (Machine Config Server) - not found"
     fi
     
-    # 检查22端口
+    # Check port 22
     local has_22
     has_22=$(aws ec2 describe-security-groups \
         --region "${AWS_REGION}" \
@@ -128,12 +128,12 @@ check_controlplane_ports() {
         --output text)
     
     if [[ -n "${has_22}" ]]; then
-        log_success "  ✅ 22/tcp (SSH) - 已配置"
+        log_success "  ✅ 22/tcp (SSH) - configured"
     else
-        log_warning "  ⚠️  22/tcp (SSH) - 未找到"
+        log_warning "  ⚠️  22/tcp (SSH) - not found"
     fi
     
-    # 检查ICMP
+    # Check ICMP
     local has_icmp
     has_icmp=$(aws ec2 describe-security-groups \
         --region "${AWS_REGION}" \
@@ -142,18 +142,18 @@ check_controlplane_ports() {
         --output text)
     
     if [[ -n "${has_icmp}" ]]; then
-        log_success "  ✅ ICMP - 已配置"
+        log_success "  ✅ ICMP - configured"
     else
-        log_warning "  ⚠️  ICMP - 未找到"
+        log_warning "  ⚠️  ICMP - not found"
     fi
 }
 
 check_worker_ports() {
     local sg_id=$1
     
-    log_info "Worker Node端口检查:"
+    log_info "Worker Node port check:"
     
-    # 检查22端口
+    # Check port 22
     local has_22
     has_22=$(aws ec2 describe-security-groups \
         --region "${AWS_REGION}" \
@@ -162,12 +162,12 @@ check_worker_ports() {
         --output text)
     
     if [[ -n "${has_22}" ]]; then
-        log_success "  ✅ 22/tcp (SSH) - 已配置"
+        log_success "  ✅ 22/tcp (SSH) - configured"
     else
-        log_warning "  ⚠️  22/tcp (SSH) - 未找到"
+        log_warning "  ⚠️  22/tcp (SSH) - not found"
     fi
     
-    # 检查ICMP
+    # Check ICMP
     local has_icmp
     has_icmp=$(aws ec2 describe-security-groups \
         --region "${AWS_REGION}" \
@@ -176,17 +176,17 @@ check_worker_ports() {
         --output text)
     
     if [[ -n "${has_icmp}" ]]; then
-        log_success "  ✅ ICMP - 已配置"
+        log_success "  ✅ ICMP - configured"
     else
-        log_warning "  ⚠️  ICMP - 未找到"
+        log_warning "  ⚠️  ICMP - not found"
     fi
 }
 
-# 验证网络隔离
+# Verify network isolation
 verify_isolation() {
-    log_info "=== 验证网络隔离 ==="
+    log_info "=== Verifying Network Isolation ==="
     
-    # 获取两个集群的安全组
+    # Get security groups for both clusters
     local cluster1_sgs
     cluster1_sgs=$(aws ec2 describe-instances \
         --region "${AWS_REGION}" \
@@ -201,10 +201,10 @@ verify_isolation() {
         --query 'Reservations[].Instances[].SecurityGroups[].GroupId' \
         --output text | tr '\t' '\n' | sort | uniq)
     
-    log_info "集群1安全组: ${cluster1_sgs}"
-    log_info "集群2安全组: ${cluster2_sgs}"
+    log_info "Cluster 1 security groups: ${cluster1_sgs}"
+    log_info "Cluster 2 security groups: ${cluster2_sgs}"
     
-    # 检查是否有共享安全组
+    # Check for shared security groups
     local shared_sgs=""
     for sg1 in $cluster1_sgs; do
         for sg2 in $cluster2_sgs; do
@@ -215,28 +215,28 @@ verify_isolation() {
     done
     
     if [[ -z "${shared_sgs}" ]]; then
-        log_success "✅ 两个集群使用完全独立的安全组"
-        log_success "✅ 网络隔离配置正确"
+        log_success "✅ Both clusters use completely independent security groups"
+        log_success "✅ Network isolation is correctly configured"
     else
-        log_error "❌ 发现共享安全组: ${shared_sgs}"
-        log_error "❌ 网络隔离可能有问题"
+        log_error "❌ Found shared security groups: ${shared_sgs}"
+        log_error "❌ Network isolation may have issues"
     fi
 }
 
-# 主函数
+# Main function
 main() {
-    log_info "开始安全组验证"
+    log_info "Starting security group verification"
     echo "=========================================="
     
-    check_cluster "集群1" "${CLUSTER1_INFRA_ID}"
-    check_cluster "集群2" "${CLUSTER2_INFRA_ID}"
+    check_cluster "Cluster 1" "${CLUSTER1_INFRA_ID}"
+    check_cluster "Cluster 2" "${CLUSTER2_INFRA_ID}"
     
     verify_isolation
     
-    log_success "安全组验证完成！"
+    log_success "Security group verification completed!"
     echo
-    log_info "OpenShift 4.x使用安全组引用实现网络隔离"
-    log_info "这是比CIDR规则更安全的方法"
+    log_info "OpenShift 4.x uses security group references to achieve network isolation"
+    log_info "This is a more secure approach than CIDR rules"
 }
 
 main "$@"
