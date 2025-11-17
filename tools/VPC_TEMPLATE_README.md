@@ -1,127 +1,127 @@
-# VPC 模板设计说明
+# VPC Template Design Documentation
 
-## 概述
+## Overview
 
-本项目使用三个不同的 VPC 模板来支持不同的 OpenShift 集群部署需求：
-- **`vpc-template-original.yaml`** - 通用 VPC 模板，支持多种配置选项
-- **`vpc-template-private-cluster.yaml`** - 私有集群专用 VPC 模板
-- **`vpc-template-public-cluster.yaml`** - 公共集群专用 VPC 模板
+This project uses three different VPC templates to support different OpenShift cluster deployment requirements:
+- **`vpc-template-original.yaml`** - General VPC template supporting multiple configuration options
+- **`vpc-template-private-cluster.yaml`** - Private cluster dedicated VPC template
+- **`vpc-template-public-cluster.yaml`** - Public cluster dedicated VPC template
 
-## 为什么需要三个模板？
+## Why Three Templates?
 
-### 关键差异：MapPublicIpOnLaunch 配置
+### Key Difference: MapPublicIpOnLaunch Configuration
 
-这个配置决定了子网中的实例是否自动分配公网 IP 地址，对于不同的集群类型有重要影响：
+This configuration determines whether instances in subnets automatically get public IP addresses, which has important implications for different cluster types:
 
-#### 1. 私有集群模板 (`vpc-template-private-cluster.yaml`)
+#### 1. Private Cluster Template (`vpc-template-private-cluster.yaml`)
 ```yaml
-# 公共子网 - 不自动分配公网IP（更安全）
+# Public subnets - do not auto-assign public IPs (more secure)
 PublicSubnet:
   Properties:
-    MapPublicIpOnLaunch: "false"  # 关键：false
+    MapPublicIpOnLaunch: "false"  # Key: false
 
-# 私有子网 - 不自动分配公网IP
+# Private subnets - do not auto-assign public IPs
 PrivateSubnet:
   Properties:
-    MapPublicIpOnLaunch: "false"  # 关键：false
+    MapPublicIpOnLaunch: "false"  # Key: false
 ```
 
-**特点：**
-- 更安全的网络配置
-- 公共子网仅用于 NAT Gateway、Load Balancer
-- 所有节点都在私有子网中
-- 通过堡垒主机或 VPN 访问
+**Characteristics:**
+- More secure network configuration
+- Public subnets only used for NAT Gateway, Load Balancer
+- All nodes are in private subnets
+- Access through bastion host or VPN
 
-#### 2. 公共集群模板 (`vpc-template-public-cluster.yaml`)
+#### 2. Public Cluster Template (`vpc-template-public-cluster.yaml`)
 ```yaml
-# 公共子网 - 自动分配公网IP
+# Public subnets - auto-assign public IPs
 PublicSubnet:
   Properties:
-    MapPublicIpOnLaunch: "true"   # 关键：true
+    MapPublicIpOnLaunch: "true"   # Key: true
 
-# 私有子网 - 不自动分配公网IP
+# Private subnets - do not auto-assign public IPs
 PrivateSubnet:
   Properties:
-    MapPublicIpOnLaunch: "false"  # 关键：false
+    MapPublicIpOnLaunch: "false"  # Key: false
 ```
 
-**特点：**
-- 公共子网中的实例可以直接从互联网访问
-- 支持公共 Load Balancer
-- 部署和配置更简单
-- 适合开发和测试环境
+**Characteristics:**
+- Instances in public subnets can be directly accessed from internet
+- Supports public Load Balancer
+- Simpler deployment and configuration
+- Suitable for development and testing environments
 
-#### 3. 通用模板 (`vpc-template-original.yaml`)
+#### 3. General Template (`vpc-template-original.yaml`)
 ```yaml
-# 支持动态配置
+# Supports dynamic configuration
 PublicSubnet:
   Properties:
     MapPublicIpOnLaunch:
       !If [
         "DoOnlyPublicSubnets",
-        "true",    # 如果只创建公共子网
-        "false"    # 如果创建混合子网
+        "true",    # If only creating public subnets
+        "false"    # If creating mixed subnets
       ]
 ```
 
-**特点：**
-- 最灵活的配置选项
-- 支持多种部署场景
-- 包含额外的功能（DHCP 选项、资源分享等）
+**Characteristics:**
+- Most flexible configuration options
+- Supports multiple deployment scenarios
+- Includes additional features (DHCP options, resource sharing, etc.)
 
-## 模板选择指南
+## Template Selection Guide
 
-### 选择私有集群模板 (`vpc-template-private-cluster.yaml`) 当：
-- 需要高安全性的生产环境
-- 有现有的网络基础设施
-- 通过堡垒主机或 VPN 访问集群
-- 不需要公共子网中的实例直接访问互联网
+### Choose Private Cluster Template (`vpc-template-private-cluster.yaml`) when:
+- Need high-security production environment
+- Have existing network infrastructure
+- Access cluster through bastion host or VPN
+- Don't need instances in public subnets to directly access internet
 
-### 选择公共集群模板 (`vpc-template-public-cluster.yaml`) 当：
-- 开发和测试环境
-- 需要快速部署和验证
-- 需要公共 Load Balancer
-- 公共子网中的实例需要直接互联网访问
+### Choose Public Cluster Template (`vpc-template-public-cluster.yaml`) when:
+- Development and testing environments
+- Need quick deployment and validation
+- Need public Load Balancer
+- Instances in public subnets need direct internet access
 
-### 选择通用模板 (`vpc-template-original.yaml`) 当：
-- 需要特殊的网络配置
-- 需要 DHCP 选项集
-- 需要资源分享功能
-- 需要更复杂的条件逻辑
+### Choose General Template (`vpc-template-original.yaml`) when:
+- Need special network configuration
+- Need DHCP option sets
+- Need resource sharing features
+- Need more complex conditional logic
 
-## 网络架构对比
+## Network Architecture Comparison
 
-| 特性 | 私有集群 | 公共集群 | 通用模板 |
+| Feature | Private Cluster | Public Cluster | General Template |
 |------|----------|----------|----------|
-| 公共子网 MapPublicIpOnLaunch | false | true | 可配置 |
-| 私有子网 MapPublicIpOnLaunch | false | false | false |
-| 安全性 | 高 | 中等 | 可配置 |
-| 部署复杂度 | 中等 | 简单 | 复杂 |
-| 灵活性 | 中等 | 中等 | 高 |
+| Public Subnet MapPublicIpOnLaunch | false | true | Configurable |
+| Private Subnet MapPublicIpOnLaunch | false | false | false |
+| Security Level | High | Medium | Configurable |
+| Deployment Complexity | Medium | Simple | Complex |
+| Flexibility | Medium | Medium | High |
 
-## 使用方法
+## Usage
 
-### 创建私有集群 VPC
+### Create Private Cluster VPC
 ```bash
 ./create-vpc-stack.sh -s my-private-vpc -t vpc-template-private-cluster.yaml
 ```
 
-### 创建公共集群 VPC
+### Create Public Cluster VPC
 ```bash
 ./create-vpc-stack.sh -s my-public-vpc -t vpc-template-public-cluster.yaml
 ```
 
-### 创建通用 VPC
+### Create General VPC
 ```bash
 ./create-vpc-stack.sh -s my-general-vpc -t vpc-template-original.yaml
 ```
 
-## 总结
+## Summary
 
-三个 VPC 模板的存在是为了满足不同的安全需求和部署场景：
+The existence of three VPC templates is to meet different security requirements and deployment scenarios:
 
-1. **私有集群模板**：提供最高安全性，适合生产环境
-2. **公共集群模板**：提供简单部署，适合开发测试
-3. **通用模板**：提供最大灵活性，适合特殊需求
+1. **Private Cluster Template**: Provides highest security, suitable for production environments
+2. **Public Cluster Template**: Provides simple deployment, suitable for development and testing
+3. **General Template**: Provides maximum flexibility, suitable for special requirements
 
-选择哪个模板取决于你的具体需求、安全要求和部署环境。
+Which template to choose depends on your specific needs, security requirements, and deployment environment.

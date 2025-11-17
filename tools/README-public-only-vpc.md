@@ -1,20 +1,20 @@
 # Public Only VPC Template
 
-这个CloudFormation模板专门用于创建只包含公共子网的VPC，满足OCP-80182和OCP-81178测试用例的要求。
+This CloudFormation template is specifically designed to create a VPC containing only public subnets, meeting the requirements of OCP-80182 and OCP-81178 test cases.
 
-## 特性
+## Features
 
-- ✅ **仅创建公共子网** - 不创建私有子网
-- ✅ **无NAT网关** - 不创建NAT网关和相关资源
-- ✅ **自动公共IP分配** - 所有子网都设置`MapPublicIpOnLaunch: true`
-- ✅ **Internet Gateway** - 提供互联网访问
-- ✅ **S3 VPC Endpoint** - 优化S3访问性能
-- ✅ **多AZ支持** - 支持1-3个可用区
-- ✅ **灵活CIDR配置** - 可自定义VPC和子网CIDR
+- ✅ **Creates only public subnets** - Does not create private subnets
+- ✅ **No NAT gateways** - Does not create NAT gateways and related resources
+- ✅ **Automatic public IP assignment** - All subnets set `MapPublicIpOnLaunch: true`
+- ✅ **Internet Gateway** - Provides internet access
+- ✅ **S3 VPC Endpoint** - Optimizes S3 access performance
+- ✅ **Multi-AZ support** - Supports 1-3 availability zones
+- ✅ **Flexible CIDR configuration** - Customizable VPC and subnet CIDRs
 
-## 使用方法
+## Usage
 
-### 1. 基本部署
+### 1. Basic Deployment
 
 ```bash
 aws cloudformation create-stack \
@@ -23,7 +23,7 @@ aws cloudformation create-stack \
   --parameters ParameterKey=AvailabilityZoneCount,ParameterValue=3
 ```
 
-### 2. 自定义参数部署
+### 2. Custom Parameters Deployment
 
 ```bash
 aws cloudformation create-stack \
@@ -36,67 +36,67 @@ aws cloudformation create-stack \
     ParameterKey=AllowedAvailabilityZoneList,ParameterValue="us-east-1a,us-east-1b,us-east-1c"
 ```
 
-### 3. 获取输出信息
+### 3. Get Output Information
 
 ```bash
-# 获取VPC ID
+# Get VPC ID
 aws cloudformation describe-stacks \
   --stack-name openshift-public-vpc \
   --query 'Stacks[0].Outputs[?OutputKey==`VpcId`].OutputValue' \
   --output text
 
-# 获取公共子网ID列表
+# Get public subnet ID list
 aws cloudformation describe-stacks \
   --stack-name openshift-public-vpc \
   --query 'Stacks[0].Outputs[?OutputKey==`PublicSubnetIds`].OutputValue' \
   --output text
 ```
 
-## 参数说明
+## Parameter Description
 
-| 参数名 | 类型 | 默认值 | 说明 |
+| Parameter Name | Type | Default Value | Description |
 |--------|------|--------|------|
-| VpcCidr | String | 10.0.0.0/16 | VPC的CIDR块 |
-| AvailabilityZoneCount | Number | 3 | 可用区数量 (1-3) |
-| SubnetBits | Number | 12 | 每个子网的位数 (/20) |
-| AllowedAvailabilityZoneList | CommaDelimitedList | "" | 允许的可用区列表 |
+| VpcCidr | String | 10.0.0.0/16 | VPC CIDR block |
+| AvailabilityZoneCount | Number | 3 | Number of availability zones (1-3) |
+| SubnetBits | Number | 12 | Number of bits per subnet (/20) |
+| AllowedAvailabilityZoneList | CommaDelimitedList | "" | List of allowed availability zones |
 
-## 输出说明
+## Output Description
 
-| 输出名 | 说明 |
+| Output Name | Description |
 |--------|------|
 | VpcId | VPC ID |
-| PublicSubnetIds | 公共子网ID列表 (逗号分隔) |
-| PublicRouteTableId | 公共路由表ID |
-| AvailabilityZones | 使用的可用区列表 |
-| PublicSubnet1Id | 公共子网1 ID |
-| PublicSubnet2Id | 公共子网2 ID (如果存在) |
-| PublicSubnet3Id | 公共子网3 ID (如果存在) |
+| PublicSubnetIds | Public subnet ID list (comma-separated) |
+| PublicRouteTableId | Public route table ID |
+| AvailabilityZones | List of availability zones used |
+| PublicSubnet1Id | Public subnet 1 ID |
+| PublicSubnet2Id | Public subnet 2 ID (if exists) |
+| PublicSubnet3Id | Public subnet 3 ID (if exists) |
 
-## 与OpenShift集成
+## Integration with OpenShift
 
-### 1. 用于OCP-80182测试
+### 1. For OCP-80182 Testing
 
 ```bash
-# 1. 创建VPC
+# 1. Create VPC
 aws cloudformation create-stack \
   --stack-name ocp-80182-vpc \
   --template-body file://vpc-template-public-only.yaml \
   --parameters ParameterKey=AvailabilityZoneCount,ParameterValue=3
 
-# 2. 等待创建完成
+# 2. Wait for creation completion
 aws cloudformation wait stack-create-complete --stack-name ocp-80182-vpc
 
-# 3. 获取子网ID
+# 3. Get subnet IDs
 SUBNET_IDS=$(aws cloudformation describe-stacks \
   --stack-name ocp-80182-vpc \
   --query 'Stacks[0].Outputs[?OutputKey==`PublicSubnetIds`].OutputValue' \
   --output text)
 
-# 4. 设置环境变量
+# 4. Set environment variable
 export OPENSHIFT_INSTALL_AWS_PUBLIC_ONLY=true
 
-# 5. 创建install-config.yaml
+# 5. Create install-config.yaml
 cat > install-config.yaml << EOF
 apiVersion: v1
 baseDomain: example.com
@@ -113,77 +113,77 @@ sshKey: |
 EOF
 ```
 
-### 2. 用于OCP-81178测试
+### 2. For OCP-81178 Testing
 
 ```bash
-# 1. 创建VPC (与OCP-80182相同)
+# 1. Create VPC (same as OCP-80182)
 aws cloudformation create-stack \
   --stack-name ocp-81178-vpc \
   --template-body file://vpc-template-public-only.yaml
 
-# 2. 设置环境变量
+# 2. Set environment variable
 export OPENSHIFT_INSTALL_AWS_PUBLIC_ONLY=true
 
-# 3. 运行IPI安装
+# 3. Run IPI installation
 openshift-install create cluster
 ```
 
-## 验证
+## Verification
 
-### 1. 验证只有公共子网
+### 1. Verify Only Public Subnets
 
 ```bash
-# 检查子网类型
+# Check subnet types
 aws ec2 describe-subnets \
   --filters "Name=vpc-id,Values=vpc-xxxxxxxxx" \
   --query 'Subnets[*].[SubnetId,Tags[?Key==`Name`].Value|[0],MapPublicIpOnLaunch]' \
   --output table
 ```
 
-### 2. 验证无NAT网关
+### 2. Verify No NAT Gateways
 
 ```bash
-# 检查NAT网关
+# Check NAT gateways
 aws ec2 describe-nat-gateways \
   --filter "Name=vpc-id,Values=vpc-xxxxxxxxx" \
   --query 'NatGateways[*].[NatGatewayId,State]' \
   --output table
 ```
 
-### 3. 验证路由表
+### 3. Verify Route Tables
 
 ```bash
-# 检查路由表
+# Check route tables
 aws ec2 describe-route-tables \
   --filters "Name=vpc-id,Values=vpc-xxxxxxxxx" \
   --query 'RouteTables[*].[RouteTableId,Routes[*].[DestinationCidrBlock,GatewayId]]' \
   --output table
 ```
 
-## 清理
+## Cleanup
 
 ```bash
-# 删除CloudFormation堆栈
+# Delete CloudFormation stack
 aws cloudformation delete-stack --stack-name openshift-public-vpc
 
-# 等待删除完成
+# Wait for deletion completion
 aws cloudformation wait stack-delete-complete --stack-name openshift-public-vpc
 ```
 
-## 注意事项
+## Notes
 
-1. **安全组配置**: 确保安全组允许必要的入站和出站流量
-2. **DNS设置**: VPC已启用DNS支持和DNS主机名
-3. **子网大小**: 默认每个子网为/20 (4096个IP地址)
-4. **成本优化**: 不创建NAT网关可以节省成本
-5. **网络性能**: 所有流量都通过Internet Gateway，确保网络延迟可接受
+1. **Security Group Configuration**: Ensure security groups allow necessary inbound and outbound traffic
+2. **DNS Settings**: VPC has DNS support and DNS hostnames enabled
+3. **Subnet Size**: Default is /20 per subnet (4096 IP addresses)
+4. **Cost Optimization**: Not creating NAT gateways saves costs
+5. **Network Performance**: All traffic goes through Internet Gateway, ensure network latency is acceptable
 
-## 与CI模板的区别
+## Differences from CI Template
 
-| 特性 | 此模板 | CI模板 |
+| Feature | This Template | CI Template |
 |------|--------|--------|
-| 私有子网 | ❌ 不创建 | ✅ 条件创建 |
-| NAT网关 | ❌ 不创建 | ✅ 条件创建 |
-| 参数复杂度 | 🟢 简单 | 🟡 复杂 |
-| 用途 | 🎯 专门用于public-only | 🔄 通用模板 |
-| 维护性 | 🟢 易于维护 | 🟡 需要理解条件逻辑 |
+| Private Subnets | ❌ Not created | ✅ Conditionally created |
+| NAT Gateways | ❌ Not created | ✅ Conditionally created |
+| Parameter Complexity | 🟢 Simple | 🟡 Complex |
+| Purpose | 🎯 Specifically for public-only | 🔄 General template |
+| Maintainability | 🟢 Easy to maintain | 🟡 Requires understanding conditional logic |

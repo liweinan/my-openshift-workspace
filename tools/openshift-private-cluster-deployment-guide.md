@@ -1,12 +1,12 @@
-# OpenShift 私有集群部署指南
+# OpenShift Private Cluster Deployment Guide
 
-## 概述
+## Overview
 
-本文档详细描述了在 AWS 上部署 OpenShift 私有集群的完整过程，包括 VPC 网络架构、堡垒主机配置和集群安装步骤。
+This document provides a detailed description of the complete process for deploying OpenShift private clusters on AWS, including VPC network architecture, bastion host configuration, and cluster installation steps.
 
-## 网络架构图
+## Network Architecture Diagram
 
-### VPC 网络结构
+### VPC Network Structure
 
 ```mermaid
 graph TB
@@ -15,7 +15,7 @@ graph TB
     end
     
     subgraph "AWS Services"
-        S3[S3 服务]
+        S3[S3 Service]
     end
     
     subgraph "AWS VPC: 10.0.0.0/16"
@@ -58,7 +58,7 @@ graph TB
         end
     end
     
-    %% 连接关系
+    %% Connections
     INTERNET --> IGW
     IGW --> PUB_SUBNET_1A
     IGW --> PUB_SUBNET_1B
@@ -90,46 +90,46 @@ graph TB
     S3_ENDPOINT --> PRIV_SUBNET_1A
     S3_ENDPOINT --> PRIV_SUBNET_1B
     
-    %% S3 VPC Endpoint 连接
-    S3_ENDPOINT -.->|AWS 内部网络| S3[S3 服务]
+    %% S3 VPC Endpoint Connection
+    S3_ENDPOINT -.->|AWS Internal Network| S3[S3 Service]
 ```
 
-### 部署流程图
+### Deployment Flow Chart
 
 ```mermaid
 flowchart TD
-    A[开始部署] --> B[创建 VPC 堆栈]
-    B --> C[创建堡垒主机]
-    C --> D[准备集群配置]
-    D --> E[在堡垒主机上安装集群]
-    E --> F[等待集群初始化]
-    F --> G[验证集群状态]
-    G --> H[部署完成]
+    A[Start Deployment] --> B[Create VPC Stack]
+    B --> C[Create Bastion Host]
+    C --> D[Prepare Cluster Configuration]
+    D --> E[Install Cluster on Bastion Host]
+    E --> F[Wait for Cluster Initialization]
+    F --> G[Verify Cluster Status]
+    G --> H[Deployment Complete]
     
-    subgraph "VPC 创建阶段"
-        B1[创建 VPC: 10.0.0.0/16] --> B2[创建公网子网]
-        B2 --> B3[创建私网子网]
-        B3 --> B4[创建 Internet Gateway]
-        B4 --> B5[创建 NAT Gateway]
-        B5 --> B6[创建 S3 VPC Endpoint]
-        B6 --> B7[配置路由表]
+    subgraph "VPC Creation Phase"
+        B1[Create VPC: 10.0.0.0/16] --> B2[Create Public Subnets]
+        B2 --> B3[Create Private Subnets]
+        B3 --> B4[Create Internet Gateway]
+        B4 --> B5[Create NAT Gateway]
+        B5 --> B6[Create S3 VPC Endpoint]
+        B6 --> B7[Configure Route Tables]
     end
     
-    subgraph "堡垒主机创建阶段"
-        C1[获取 RHCOS AMI] --> C2[创建 S3 存储桶]
-        C2 --> C3[上传 Ignition 文件]
-        C3 --> C4[创建 CloudFormation 堆栈]
-        C4 --> C5[启动堡垒主机实例]
-        C5 --> C6[配置 SSH 访问]
+    subgraph "Bastion Host Creation Phase"
+        C1[Get RHCOS AMI] --> C2[Create S3 Bucket]
+        C2 --> C3[Upload Ignition Files]
+        C3 --> C4[Create CloudFormation Stack]
+        C4 --> C5[Launch Bastion Host Instance]
+        C5 --> C6[Configure SSH Access]
     end
     
-    subgraph "集群安装阶段"
-        E1[复制安装文件] --> E2[创建 manifests]
-        E2 --> E3[创建 ignition 文件]
-        E3 --> E4[启动 bootstrap 节点]
-        E4 --> E5[启动 master 节点]
-        E5 --> E6[启动 worker 节点]
-        E6 --> E7[等待集群就绪]
+    subgraph "Cluster Installation Phase"
+        E1[Copy Installation Files] --> E2[Create Manifests]
+        E2 --> E3[Create Ignition Files]
+        E3 --> E4[Launch Bootstrap Node]
+        E4 --> E5[Launch Master Nodes]
+        E5 --> E6[Launch Worker Nodes]
+        E6 --> E7[Wait for Cluster Ready]
     end
     
     B --> B1
@@ -137,104 +137,104 @@ flowchart TD
     E --> E1
 ```
 
-## 网络架构详解
+## Network Architecture Details
 
-### VPC 配置
+### VPC Configuration
 
 - **VPC CIDR**: `10.0.0.0/16`
-- **可用区数量**: 2 (us-east-1a, us-east-1b)
-- **网络类型**: 私有集群 (Internal)
+- **Availability Zones**: 2 (us-east-1a, us-east-1b)
+- **Network Type**: Private cluster (Internal)
 
-### 组件部署位置
+### Component Deployment Locations
 
-#### 公网子网组件
-- **堡垒主机**: 部署在公网子网 `subnet-029dcd0c8f4949a2c` (us-east-1a)
-- **Internet Gateway**: 连接公网子网到互联网
-- **NAT Gateway**: 为私网子网提供互联网访问
+#### Public Subnet Components
+- **Bastion Host**: Deployed in public subnet `subnet-029dcd0c8f4949a2c` (us-east-1a)
+- **Internet Gateway**: Connects public subnets to internet
+- **NAT Gateway**: Provides internet access for private subnets
 
-#### 私网子网组件
-- **控制平面节点**: 部署在私网子网中
-- **工作节点**: 部署在私网子网中
-- **API 负载均衡器**: 内部负载均衡器
-- **应用程序负载均衡器**: 外部负载均衡器
+#### Private Subnet Components
+- **Control Plane Nodes**: Deployed in private subnets
+- **Worker Nodes**: Deployed in private subnets
+- **API Load Balancer**: Internal load balancer
+- **Application Load Balancer**: External load balancer
 
-### 子网分配
+### Subnet Allocation
 
-#### 公网子网
+#### Public Subnets
 - **us-east-1a**: `10.0.0.0/20` (subnet-029dcd0c8f4949a2c)
 - **us-east-1b**: `10.0.32.0/20` (subnet-08a6071234b74a5bd)
 
-#### 私网子网
+#### Private Subnets
 - **us-east-1a**: `10.0.64.0/20` (subnet-02115a41d6cbeb8b8)
 - **us-east-1b**: `10.0.96.0/20` (subnet-0eb73e4781c6dad39)
 
-### 网络组件
+### Network Components
 
 #### Internet Gateway
-- 连接 VPC 到互联网
-- 仅用于公网子网中的堡垒主机
+- Connects VPC to internet
+- Only used for bastion host in public subnets
 
 #### NAT Gateway
-- 每个可用区一个 NAT Gateway
-- 为私网子网中的实例提供互联网访问
-- 用于下载容器镜像和软件包
+- One NAT Gateway per availability zone
+- Provides internet access for instances in private subnets
+- Used for downloading container images and packages
 
 #### S3 VPC Endpoint
-- 为私网子网提供 S3 访问
-- 避免通过 NAT Gateway 访问 S3
-- 提高性能和降低成本
+- Provides S3 access for private subnets
+- Avoids accessing S3 through NAT Gateway
+- Improves performance and reduces costs
 
-**S3 VPC Endpoint 的作用：**
+**Role of S3 VPC Endpoint:**
 
-1. **直接访问 S3 服务**
-   - 允许 VPC 内的实例直接访问 S3 存储桶
-   - 无需通过 Internet Gateway 或 NAT Gateway
-   - 使用 AWS 内部网络，不经过公网
+1. **Direct Access to S3 Service**
+   - Allows instances within VPC to directly access S3 buckets
+   - No need to go through Internet Gateway or NAT Gateway
+   - Uses AWS internal network, not through public internet
 
-2. **网络架构优化**
+2. **Network Architecture Optimization**
    ```
-   传统方式：
-   VPC 私网子网 → NAT Gateway → Internet Gateway → 公网 → S3
+   Traditional way:
+   VPC private subnet → NAT Gateway → Internet Gateway → public internet → S3
 
-   使用 S3 VPC Endpoint：
-   VPC 私网子网 → S3 VPC Endpoint → S3 (AWS 内部网络)
+   Using S3 VPC Endpoint:
+   VPC private subnet → S3 VPC Endpoint → S3 (AWS internal network)
    ```
 
-**在私有集群中的具体用途：**
+**Specific Uses in Private Clusters:**
 
-1. **OpenShift 安装过程**
-   - **Bootstrap 节点**：下载容器镜像和软件包
-   - **Master 节点**：拉取 Kubernetes 组件镜像
-   - **Worker 节点**：拉取应用程序镜像
+1. **OpenShift Installation Process**
+   - **Bootstrap node**: Downloads container images and packages
+   - **Master nodes**: Pulls Kubernetes component images
+   - **Worker nodes**: Pulls application images
 
-2. **集群运行时**
-   - **镜像仓库**：从 S3 拉取容器镜像
-   - **日志存储**：将集群日志上传到 S3
-   - **备份数据**：存储集群备份和配置
+2. **Cluster Runtime**
+   - **Image registry**: Pulls container images from S3
+   - **Log storage**: Uploads cluster logs to S3
+   - **Backup data**: Stores cluster backups and configurations
 
-**优势：**
+**Advantages:**
 
-1. **性能提升**
-   - **延迟更低**：使用 AWS 内部网络，延迟比公网访问低
-   - **带宽更高**：内部网络带宽通常比公网连接更稳定
-   - **吞吐量更大**：适合大量数据传输
+1. **Performance Improvement**
+   - **Lower latency**: Uses AWS internal network, lower latency than public internet access
+   - **Higher bandwidth**: Internal network bandwidth is typically more stable than public connections
+   - **Greater throughput**: Suitable for large data transfers
 
-2. **成本节省**
-   - **减少 NAT Gateway 费用**：避免通过 NAT Gateway 访问 S3
-   - **降低数据传输成本**：AWS 内部网络传输成本更低
-   - **减少 NAT Gateway 带宽费用**
+2. **Cost Savings**
+   - **Reduced NAT Gateway costs**: Avoids accessing S3 through NAT Gateway
+   - **Lower data transfer costs**: AWS internal network transfer costs are lower
+   - **Reduced NAT Gateway bandwidth costs**
 
-3. **安全性增强**
-   - **网络隔离**：不暴露到公网
-   - **访问控制**：通过 VPC Endpoint 策略控制访问权限
-   - **审计日志**：可以记录所有 S3 访问日志
+3. **Enhanced Security**
+   - **Network isolation**: Not exposed to public internet
+   - **Access control**: Control access permissions through VPC Endpoint policies
+   - **Audit logs**: Can record all S3 access logs
 
-4. **可靠性提升**
-   - **避免公网依赖**：不依赖 Internet Gateway 的可用性
-   - **减少网络故障点**：减少网络路径中的故障点
-   - **提高可用性**：AWS 内部网络通常比公网更稳定
+4. **Improved Reliability**
+   - **Avoids public internet dependency**: Not dependent on Internet Gateway availability
+   - **Reduces network failure points**: Reduces failure points in network path
+   - **Improves availability**: AWS internal network is typically more stable than public internet
 
-**VPC 模板中的配置：**
+**Configuration in VPC Template:**
 
 ```yaml
 S3Endpoint:
@@ -262,76 +262,76 @@ S3Endpoint:
     VpcId: !Ref VPC
 ```
 
-**实际效果：**
+**Actual Effects:**
 
-1. **安装阶段**：
-   - Bootstrap 节点通过 S3 VPC Endpoint 下载 ignition 文件
-   - Master 节点通过 S3 VPC Endpoint 拉取容器镜像
+1. **Installation Phase**:
+   - Bootstrap node downloads ignition files through S3 VPC Endpoint
+   - Master nodes pull container images through S3 VPC Endpoint
 
-2. **运行阶段**：
-   - 集群组件通过 S3 VPC Endpoint 访问镜像仓库
-   - 应用程序通过 S3 VPC Endpoint 拉取镜像
+2. **Runtime Phase**:
+   - Cluster components access image registry through S3 VPC Endpoint
+   - Applications pull images through S3 VPC Endpoint
 
-3. **网络路径**：
+3. **Network Path**:
    ```
-   私网子网 → S3 VPC Endpoint → S3 服务
+   Private subnet → S3 VPC Endpoint → S3 service
    ```
-   而不是：
+   Instead of:
    ```
-   私网子网 → NAT Gateway → Internet Gateway → 公网 → S3
+   Private subnet → NAT Gateway → Internet Gateway → public internet → S3
    ```
 
-## 安全架构
+## Security Architecture
 
-### 安全组配置
+### Security Group Configuration
 
-#### 堡垒主机安全组
-- **入站规则**: SSH (22) 从 0.0.0.0/0
-- **出站规则**: 所有流量到 0.0.0.0/0
+#### Bastion Host Security Group
+- **Inbound Rules**: SSH (22) from 0.0.0.0/0
+- **Outbound Rules**: All traffic to 0.0.0.0/0
 
-#### 集群安全组
-- **API 服务器**: 6443 端口从堡垒主机安全组
-- **控制平面**: 内部通信端口
-- **工作节点**: 应用程序端口
+#### Cluster Security Group
+- **API Server**: Port 6443 from bastion host security group
+- **Control Plane**: Internal communication ports
+- **Worker Nodes**: Application ports
 
-### 网络隔离
+### Network Isolation
 
-- **控制平面节点**: 仅在私网子网中，无公网 IP
-- **工作节点**: 仅在私网子网中，无公网 IP
-- **堡垒主机**: 在公网子网中，有公网 IP，作为访问私网集群的唯一入口
-- **API 访问**: 通过内部负载均衡器，仅堡垒主机可访问
+- **Control Plane Nodes**: Only in private subnets, no public IP
+- **Worker Nodes**: Only in private subnets, no public IP
+- **Bastion Host**: In public subnet with public IP, serves as the only entry point to access private cluster
+- **API Access**: Through internal load balancer, only accessible from bastion host
 
-## 部署步骤
+## Deployment Steps
 
-### 1. 创建 VPC 堆栈
+### 1. Create VPC Stack
 
 ```bash
-# 修改 create-vpc-stack.sh 中的配置
+# Modify configuration in create-vpc-stack.sh
 STACK_NAME="weli-private-cluster-vpc"
 VPC_CIDR="10.0.0.0/16"
 AZ_COUNT=2
 
-# 执行 VPC 创建
+# Execute VPC creation
 ./create-vpc-stack.sh
 ```
 
-### 2. 创建堡垒主机
+### 2. Create Bastion Host
 
 ```bash
-# 获取 VPC 输出
+# Get VPC outputs
 ./get-vpc-outputs.sh weli-private-cluster-vpc
 
-# 创建堡垒主机
+# Create bastion host
 ./create-bastion-host.sh \
   vpc-0439f81b789b415f4 \
   subnet-029dcd0c8f4949a2c \
   weli4-clu
 ```
 
-### 3. 配置集群安装
+### 3. Configure Cluster Installation
 
 ```yaml
-# install-config.yaml 关键配置
+# Key configuration in install-config.yaml
 metadata:
    name: weli4-clu
 networking:
@@ -342,52 +342,52 @@ platform:
    aws:
       region: us-east-1
       subnets:
-         - subnet-02115a41d6cbeb8b8  # 私网子网 1a
-         - subnet-0eb73e4781c6dad39  # 私网子网 1b
-publish: Internal  # 私有集群
+         - subnet-02115a41d6cbeb8b8  # Private subnet 1a
+         - subnet-0eb73e4781c6dad39  # Private subnet 1b
+publish: Internal  # Private cluster
 ```
 
-### 4. 在堡垒主机上安装集群
+### 4. Install Cluster on Bastion Host
 
 ```bash
-# 复制文件到堡垒主机
+# Copy files to bastion host
 ./copy-cluster-files-to-bastion.sh
 
-# 在堡垒主机上执行安装
+# Execute installation on bastion host
 ssh core@18.234.251.24
 ./openshift-install create cluster --dir=. --log-level=info
 ```
 
-## 验证私有集群
+## Verify Private Cluster
 
-### 1. 检查节点网络
+### 1. Check Node Network
 
 ```bash
-# 所有节点应该没有公网 IP
+# All nodes should have no public IP
 oc get nodes -o wide
-# EXTERNAL-IP 列应该显示 <none>
+# EXTERNAL-IP column should show <none>
 ```
 
-### 2. 检查 AWS 实例
+### 2. Check AWS Instances
 
 ```bash
-# 所有实例的 PublicIpAddress 应该是 None
+# PublicIpAddress of all instances should be None
 aws ec2 describe-instances \
   --filters "Name=tag:kubernetes.io/cluster/weli4-clu-vklbh,Values=owned" \
   --query 'Reservations[].Instances[].[InstanceId,PublicIpAddress]'
 ```
 
-### 3. 检查网络配置
+### 3. Check Network Configuration
 
 ```bash
-# 确认 publish 设置为 Internal
+# Confirm publish is set to Internal
 oc get infrastructure cluster -o yaml
-# status.apiServerURL 应该指向内部负载均衡器
+# status.apiServerURL should point to internal load balancer
 ```
 
-## 访问方式
+## Access Methods
 
-### 1. 堡垒主机访问
+### 1. Bastion Host Access
 
 ```bash
 ssh core@18.234.251.24
@@ -395,68 +395,68 @@ export KUBECONFIG=/var/home/core/auth/kubeconfig
 oc get nodes
 ```
 
-### 2. Web 控制台访问
+### 2. Web Console Access
 
 - **URL**: https://console-openshift-console.apps.weli4-clu.qe1.devcluster.openshift.com
-- **访问方式**: 通过应用程序负载均衡器
-- **认证**: 使用集群管理员凭据
+- **Access Method**: Through application load balancer
+- **Authentication**: Using cluster administrator credentials
 
-### 3. API 访问
+### 3. API Access
 
-- **内部 API**: https://api-int.weli4-clu.qe1.devcluster.openshift.com:6443
-- **外部 API**: https://api.weli4-clu.qe1.devcluster.openshift.com:6443
-- **访问方式**: 通过堡垒主机或 VPN
+- **Internal API**: https://api-int.weli4-clu.qe1.devcluster.openshift.com:6443
+- **External API**: https://api.weli4-clu.qe1.devcluster.openshift.com:6443
+- **Access Method**: Through bastion host or VPN
 
-## 优势
+## Advantages
 
-### 1. 安全性
-- 控制平面和工作节点完全隔离
-- 无公网 IP 暴露
-- 通过堡垒主机进行管理访问
+### 1. Security
+- Complete isolation of control plane and worker nodes
+- No public IP exposure
+- Management access through bastion host
 
-### 2. 合规性
-- 符合企业安全策略
-- 满足数据保护要求
-- 支持审计和监控
+### 2. Compliance
+- Complies with enterprise security policies
+- Meets data protection requirements
+- Supports auditing and monitoring
 
-### 3. 成本效益
-- 减少 NAT Gateway 流量
-- 使用 S3 VPC Endpoint
-- 优化网络性能
+### 3. Cost Effectiveness
+- Reduces NAT Gateway traffic
+- Uses S3 VPC Endpoint
+- Optimizes network performance
 
-## 注意事项
+## Notes
 
-1. **堡垒主机依赖**: 所有管理操作都需要通过堡垒主机
-2. **网络配置**: 确保 VPC 和子网配置正确
-3. **安全组**: 定期审查和更新安全组规则
-4. **监控**: 设置适当的监控和告警
-5. **备份**: 定期备份集群配置和数据
+1. **Bastion Host Dependency**: All management operations require going through the bastion host
+2. **Network Configuration**: Ensure VPC and subnet configurations are correct
+3. **Security Groups**: Regularly review and update security group rules
+4. **Monitoring**: Set up appropriate monitoring and alerting
+5. **Backup**: Regularly backup cluster configurations and data
 
-## 故障排除
+## Troubleshooting
 
-### 常见问题
+### Common Issues
 
-1. **网络连接问题**
-   - 检查 NAT Gateway 状态
-   - 验证路由表配置
-   - 确认安全组规则
+1. **Network Connection Issues**
+   - Check NAT Gateway status
+   - Verify route table configuration
+   - Confirm security group rules
 
-2. **集群访问问题**
-   - 验证堡垒主机连接
-   - 检查 kubeconfig 配置
-   - 确认 API 服务器状态
+2. **Cluster Access Issues**
+   - Verify bastion host connection
+   - Check kubeconfig configuration
+   - Confirm API server status
 
-3. **安装失败**
-   - 查看安装日志
-   - 检查资源配额
-   - 验证 IAM 权限
+3. **Installation Failures**
+   - View installation logs
+   - Check resource quotas
+   - Verify IAM permissions
 
-### 日志位置
+### Log Locations
 
-- **安装日志**: `~/.openshift_install.log`
-- **集群日志**: `oc logs -n openshift-cluster-api-guests`
-- **节点日志**: `oc logs -n openshift-machine-api`
+- **Installation Logs**: `~/.openshift_install.log`
+- **Cluster Logs**: `oc logs -n openshift-cluster-api-guests`
+- **Node Logs**: `oc logs -n openshift-machine-api`
 
 ---
 
-*本文档基于 OpenShift 4.19.10 和 AWS 环境编写*
+*This document is written based on OpenShift 4.19.10 and AWS environment*

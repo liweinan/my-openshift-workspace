@@ -1,13 +1,13 @@
 # OCP-24653 - [ipi-on-aws] bootimage override in install-config
 
-## 测试目标
-验证在install-config.yaml中指定自定义AMI ID时，OpenShift安装器能够正确使用指定的AMI创建集群节点。
+## Test Objectives
+Verify that when a custom AMI ID is specified in install-config.yaml, the OpenShift installer can correctly use the specified AMI to create cluster nodes.
 
-## 测试步骤
+## Test Steps
 
-### 1. 准备自定义AMI
+### 1. Prepare Custom AMI
 ```bash
-# 从us-east-1复制RHCOS 4.19 AMI到us-east-2
+# Copy RHCOS 4.19 AMI from us-east-1 to us-east-2
 aws ec2 copy-image \
   --region us-east-2 \
   --source-region us-east-1 \
@@ -16,43 +16,43 @@ aws ec2 copy-image \
   --description "Custom RHCOS 4.19 for OCP-24653 test"
 ```
 
-### 2. 等待AMI复制完成
+### 2. Wait for AMI Copy to Complete
 ```bash
-# 监控复制状态
+# Monitor copy status
 aws ec2 describe-images --region us-east-2 --image-ids ami-0faab67bebd0fe719 --query 'Images[0].State' --output text
 ```
 
-### 3. 配置install-config.yaml
+### 3. Configure install-config.yaml
 ```yaml
 platform:
   aws:
     region: us-east-2
-    amiID: ami-0faab67bebd0fe719  # 自定义AMI ID
+    amiID: ami-0faab67bebd0fe719  # Custom AMI ID
 ```
 
-### 4. 运行测试
+### 4. Run Test
 ```bash
 ./run-ocp24653-test.sh
 ```
 
-## 预期结果
-- 安装成功完成
-- 所有worker节点使用自定义AMI: `ami-0faab67bebd0fe719`
-- 所有master节点使用自定义AMI: `ami-0faab67bebd0fe719`
+## Expected Results
+- Installation completes successfully
+- All worker nodes use custom AMI: `ami-0faab67bebd0fe719`
+- All master nodes use custom AMI: `ami-0faab67bebd0fe719`
 
-## 验证方法
-测试脚本会自动验证：
-1. AMI复制状态
-2. 集群安装成功
-3. Worker节点AMI ID匹配
-4. Master节点AMI ID匹配
+## Verification Methods
+The test script will automatically verify:
+1. AMI copy status
+2. Cluster installation success
+3. Worker node AMI ID matching
+4. Master node AMI ID matching
 
-## 文件说明
-- `install-config.yaml`: 包含自定义AMI ID的安装配置
-- `run-ocp24653-test.sh`: 自动化测试脚本
-- `README.md`: 本说明文档
+## File Descriptions
+- `install-config.yaml`: Installation configuration containing custom AMI ID
+- `run-ocp24653-test.sh`: Automated test script
+- `README.md`: This documentation file
 
-## 注意事项
-- 确保AWS凭证有足够权限
-- 等待AMI复制完成后再开始安装
-- 测试完成后记得清理资源
+## Notes
+- Ensure AWS credentials have sufficient permissions
+- Wait for AMI copy to complete before starting installation
+- Remember to clean up resources after testing

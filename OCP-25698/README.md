@@ -1,21 +1,21 @@
 # OCP-25698 - [ipi-on-aws] create multiple clusters using the same subnets from an existing VPC
 
-## 测试概述
+## Test Overview
 
-这个测试用例验证在AWS上使用现有VPC的相同子网创建多个OpenShift集群的能力。测试确保：
+This test case verifies the ability to create multiple OpenShift clusters on AWS using the same subnets from an existing VPC. The test ensures:
 
-1. 多个集群可以共享同一VPC的子网
-2. 集群销毁后子网标签能正确清理
-3. 子网可以在不同集群间重复使用
-4. Machine API扩缩容功能正常工作
+1. Multiple clusters can share the same VPC subnets
+2. Subnet labels are properly cleaned up after cluster destruction
+3. Subnets can be reused between different clusters
+4. Machine API scaling functionality works properly
 
-## 测试步骤
+## Test Steps
 
-### 步骤1: 创建VPC和子网
-创建VPC，获取其子网（包括私有和公共子网）
+### Step 1: Create VPC and Subnets
+Create a VPC and obtain its subnets (including private and public subnets)
 
-### 步骤2: 创建install-config.yaml
-创建安装配置文件，在install-config.yaml中指定从步骤1获取的子网：
+### Step 2: Create install-config.yaml
+Create the installation configuration file, specifying the subnets obtained from Step 1 in install-config.yaml:
 ```yaml
 platform:
   aws:
@@ -27,28 +27,28 @@ platform:
     - subnet-0d8cb2cfaeff3128e
 ```
 
-### 步骤3: 安装集群A
-使用install-config.yaml在AWS上触发IPI安装，获得集群A
+### Step 3: Install Cluster A
+Use the install-config.yaml to trigger IPI installation on AWS to get Cluster A
 
-### 步骤4: 集群A健康检查
-安装完成后，对集群A进行健康检查
+### Step 4: Cluster A Health Check
+After installation completes, perform health checks on Cluster A
 
-### 步骤5: 安装集群B
-使用相同的install-config.yaml但不同的集群名称，在AWS上触发IPI安装，获得集群B
+### Step 5: Install Cluster B
+Use the same install-config.yaml but with a different cluster name to trigger IPI installation on AWS to get Cluster B
 
-### 步骤6: 集群B健康检查
-安装完成后，对集群B进行健康检查
+### Step 6: Cluster B Health Check
+After installation completes, perform health checks on Cluster B
 
-### 步骤7: 集群A扩缩容
-通过Machine API成功为集群A扩展一个新的工作节点
+### Step 7: Cluster A Scaling
+Successfully scale a new worker node for Cluster A through Machine API
 
-### 步骤8: 集群B扩缩容
-通过Machine API成功为集群B扩展一个新的工作节点
+### Step 8: Cluster B Scaling
+Successfully scale a new worker node for Cluster B through Machine API
 
-### 步骤9: 销毁集群A
-销毁集群A，确保整个集群A（包括扩展的工作节点）被移除
+### Step 9: Destroy Cluster A
+Destroy Cluster A, ensuring the entire Cluster A (including scaled worker nodes) is removed
 
-**预期结果：**
+**Expected Result:**
 ```
 DEBUG search for untaggable resources              
 DEBUG Search for and remove tags in us-east-2 matching kubernetes.io/cluster/jialiu43-bz-gckbt: shared
@@ -58,16 +58,16 @@ INFO Removed tag kubernetes.io/cluster/jialiu43-bz-gckbt: shared  arn="arn:aws:e
 INFO Removed tag kubernetes.io/cluster/jialiu43-bz-gckbt: shared  arn="arn:aws:ec2:us-east-2:301721915996:subnet/subnet-023cac778b5464173"
 ```
 
-### 步骤10: 集群B再次扩缩容
-通过Machine API成功为集群B扩展一个新的工作节点
+### Step 10: Cluster B Scaling Again
+Successfully scale a new worker node for Cluster B through Machine API
 
-### 步骤11: 集群B健康检查
-安装完成后，对集群B进行健康检查
+### Step 11: Cluster B Health Check
+After installation completes, perform health checks on Cluster B
 
-### 步骤12: 销毁集群B
-销毁集群B，确保整个集群B（包括扩展的工作节点）被移除
+### Step 12: Destroy Cluster B
+Destroy Cluster B, ensuring the entire Cluster B (including scaled worker nodes) is removed
 
-**预期结果：**
+**Expected Result:**
 ```
 DEBUG search for untaggable resources              
 DEBUG Search for and remove tags in us-east-2 matching kubernetes.io/cluster/jialiu43-bz-priv-z6hld : shared
@@ -77,127 +77,127 @@ INFO Removed tag kubernetes.io/cluster/jialiu43-bz-priv-z6hld: shared  arn="arn:
 INFO Removed tag kubernetes.io/cluster/jialiu43-bz-priv-z6hld: shared  arn="arn:aws:ec2:us-east-2:301721915996:subnet/subnet-023cac778b5464173"
 ```
 
-### 步骤13: 验证子网状态
-确保步骤1中创建的子网仍然存在，且没有 `kubernetes.io/cluster/${INFRA_ID}: shared` 标签
+### Step 13: Verify Subnet Status
+Ensure the subnets created in Step 1 still exist and have no `kubernetes.io/cluster/${INFRA_ID}: shared` labels
 
-### 步骤14: 清理VPC
-手动删除VPC以确保没有依赖资源残留
+### Step 14: Clean up VPC
+Manually delete the VPC to ensure no dependent resources remain
 
-## 自动化脚本
+## Automation Scripts
 
 ### setup-ocp-25698-test.sh
 
-这个脚本自动化了测试的准备工作：
+This script automates the test preparation:
 
-#### 功能
-- 创建VPC和子网（公共+私有）
-- 生成两个集群的install-config.yaml模板
-- 为子网添加共享标签
-- 提供完整的测试步骤说明
+#### Features
+- Creates VPC and subnets (public + private)
+- Generates install-config.yaml templates for two clusters
+- Adds shared labels to subnets
+- Provides complete test step instructions
 
 ### scale-cluster.sh
 
-这个脚本用于扩展现有的OpenShift集群工作节点：
+This script is used to scale existing OpenShift cluster worker nodes:
 
-#### 功能
-- 支持指定kubeconfig路径
-- 自动发现或手动指定MachineSet
-- 支持等待扩容完成
-- 提供干运行模式
-- 实时显示扩容进度和状态
+#### Features
+- Supports specifying kubeconfig path
+- Auto-discovers or manually specifies MachineSet
+- Supports waiting for scaling to complete
+- Provides dry-run mode
+- Shows real-time scaling progress and status
 
-#### 使用方法
+#### Usage
 ```bash
-# 基本用法 - 扩容到4个副本
+# Basic usage - scale to 4 replicas
 ./scale-cluster.sh --kubeconfig /path/to/kubeconfig
 
-# 扩容到6个副本
+# Scale to 6 replicas
 ./scale-cluster.sh --kubeconfig /path/to/kubeconfig --replicas 6
 
-# 指定MachineSet名称
+# Specify MachineSet name
 ./scale-cluster.sh --kubeconfig /path/to/kubeconfig --machineset my-cluster-abc123-worker-us-east-2a
 
-# 等待扩容完成
+# Wait for scaling to complete
 ./scale-cluster.sh --kubeconfig /path/to/kubeconfig --wait
 
-# 干运行模式
+# Dry-run mode
 ./scale-cluster.sh --kubeconfig /path/to/kubeconfig --dry-run
 ```
 
-#### 参数说明
-- `-k, --kubeconfig <path>`: Kubeconfig文件路径（必需）
-- `-r, --replicas <number>`: 目标副本数（默认：4）
-- `-n, --namespace <name>`: MachineSet命名空间（默认：openshift-machine-api）
-- `-m, --machineset <name>`: 指定MachineSet名称（可选）
-- `-w, --wait`: 等待扩容完成
-- `-t, --timeout <seconds>`: 等待超时时间（默认：600秒）
-- `-d, --dry-run`: 仅显示将要执行的操作，不实际执行
-- `-h, --help`: 显示帮助信息
+#### Parameters
+- `-k, --kubeconfig <path>`: Kubeconfig file path (required)
+- `-r, --replicas <number>`: Target replica count (default: 4)
+- `-n, --namespace <name>`: MachineSet namespace (default: openshift-machine-api)
+- `-m, --machineset <name>`: Specify MachineSet name (optional)
+- `-w, --wait`: Wait for scaling to complete
+- `-t, --timeout <seconds>`: Wait timeout (default: 600 seconds)
+- `-d, --dry-run`: Only show operations to be performed, do not execute
+- `-h, --help`: Show help information
 
-#### 使用方法
+#### Usage
 ```bash
-# 基本用法（使用默认参数）
+# Basic usage (using default parameters)
 ./setup-ocp-25698-test.sh
 
-# 自定义参数
+# Custom parameters
 ./setup-ocp-25698-test.sh \
   --region us-east-2 \
   --stack-name my-shared-vpc \
   --vpc-cidr 10.0.0.0/16 \
   --az-count 2
 
-# 使用已存在的VPC（跳过VPC创建）
+# Use existing VPC (skip VPC creation)
 ./setup-ocp-25698-test.sh \
   --region us-east-2 \
   --stack-name existing-vpc-stack \
   --skip-vpc
 ```
 
-#### 参数说明
-- `-r, --region`: AWS区域（默认：us-east-2）
-- `-s, --stack-name`: VPC堆栈名称（默认：ocp-25698-shared-vpc）
-- `-c, --vpc-cidr`: VPC CIDR（默认：10.0.0.0/16）
-- `-a, --az-count`: 可用区数量（默认：2）
-- `--skip-vpc`: 跳过VPC创建，使用已存在的VPC
-- `-h, --help`: 显示帮助信息
+#### Parameters
+- `-r, --region`: AWS region (default: us-east-2)
+- `-s, --stack-name`: VPC stack name (default: ocp-25698-shared-vpc)
+- `-c, --vpc-cidr`: VPC CIDR (default: 10.0.0.0/16)
+- `-a, --az-count`: Number of availability zones (default: 2)
+- `--skip-vpc`: Skip VPC creation, use existing VPC
+- `-h, --help`: Show help information
 
-## 手动执行步骤
+## Manual Execution Steps
 
-### 1. 准备环境
+### 1. Prepare Environment
 ```bash
-# 确保已安装必要工具
+# Ensure required tools are installed
 aws --version
 openshift-install version
 oc version
 
-# 设置AWS凭证
+# Set AWS credentials
 aws configure
 ```
 
-### 2. 运行设置脚本
+### 2. Run Setup Script
 ```bash
 cd OCP-25698
 ./setup-ocp-25698-test.sh --region us-east-2
 ```
 
-### 3. 更新配置文件
-编辑生成的install-config文件，添加您的pull-secret和SSH密钥：
+### 3. Update Configuration Files
+Edit the generated install-config files, add your pull-secret and SSH keys:
 ```bash
-# 编辑集群A配置
+# Edit cluster A configuration
 vim install-config-cluster-a.yaml
 
-# 编辑集群B配置
+# Edit cluster B configuration
 vim install-config-cluster-b.yaml
 ```
 
-### 4. 安装集群A
+### 4. Install Cluster A
 ```bash
 mkdir cluster-a
 cp install-config-cluster-a.yaml cluster-a/install-config.yaml
 openshift-install create cluster --dir cluster-a
 ```
 
-### 5. 集群A健康检查
+### 5. Cluster A Health Check
 ```bash
 export KUBECONFIG=cluster-a/auth/kubeconfig
 oc get nodes
@@ -205,14 +205,14 @@ oc get clusteroperators
 oc get machinesets
 ```
 
-### 6. 安装集群B
+### 6. Install Cluster B
 ```bash
 mkdir cluster-b
 cp install-config-cluster-b.yaml cluster-b/install-config.yaml
 openshift-install create cluster --dir cluster-b
 ```
 
-### 7. 集群B健康检查
+### 7. Cluster B Health Check
 ```bash
 export KUBECONFIG=cluster-b/auth/kubeconfig
 oc get nodes
@@ -220,229 +220,229 @@ oc get clusteroperators
 oc get machinesets
 ```
 
-### 8. 扩缩容测试
+### 8. Scaling Tests
 
-#### 使用自动化脚本（推荐）
+#### Using Automation Scripts (Recommended)
 ```bash
-# 集群A扩缩容
+# Cluster A scaling
 ./scale-cluster.sh --kubeconfig cluster-a/auth/kubeconfig --replicas 4 --wait
 
-# 集群B扩缩容
+# Cluster B scaling
 ./scale-cluster.sh --kubeconfig cluster-b/auth/kubeconfig --replicas 4 --wait
 ```
 
-#### 手动扩缩容（备选方案）
+#### Manual Scaling (Alternative)
 
-##### 获取MachineSet名称
+##### Get MachineSet Names
 ```bash
-# 查看所有MachineSet
+# View all MachineSets
 oc get machinesets -n openshift-machine-api
 
-# 查看MachineSet详细信息
+# View MachineSet details
 oc describe machineset <machineset-name> -n openshift-machine-api
 ```
 
-##### 执行扩缩容
+##### Execute Scaling
 ```bash
-# 集群A扩缩容
+# Cluster A scaling
 export KUBECONFIG=cluster-a/auth/kubeconfig
 oc get machinesets -n openshift-machine-api
 oc scale machineset <machineset-name> -n openshift-machine-api --replicas=4
 
-# 集群B扩缩容
+# Cluster B scaling
 export KUBECONFIG=cluster-b/auth/kubeconfig
 oc get machinesets -n openshift-machine-api
 oc scale machineset <machineset-name> -n openshift-machine-api --replicas=4
 ```
 
-##### 验证扩缩容结果
+##### Verify Scaling Results
 ```bash
-# 查看MachineSet状态
+# View MachineSet status
 oc get machinesets -n openshift-machine-api
 
-# 查看Machine状态
+# View Machine status
 oc get machines -n openshift-machine-api
 
-# 查看节点状态
+# View node status
 oc get nodes
 
-# 等待新节点就绪
+# Wait for new nodes to be ready
 oc get nodes -w
 ```
 
-### 9. 销毁集群A
+### 9. Destroy Cluster A
 ```bash
 openshift-install destroy cluster --dir cluster-a
 ```
 
-### 10. 集群B再次扩缩容
+### 10. Cluster B Scaling Again
 ```bash
-# 使用自动化脚本（推荐）
+# Using automation script (recommended)
 ./scale-cluster.sh --kubeconfig cluster-b/auth/kubeconfig --replicas 4 --wait
 
-# 或手动执行
+# Or execute manually
 export KUBECONFIG=cluster-b/auth/kubeconfig
 oc get machinesets -n openshift-machine-api
 oc scale machineset <machineset-name> -n openshift-machine-api --replicas=4
 
-# 验证扩缩容结果
+# Verify scaling results
 oc get nodes
 oc get machines -n openshift-machine-api
 ```
 
-### 11. 销毁集群B
+### 11. Destroy Cluster B
 ```bash
 openshift-install destroy cluster --dir cluster-b
 ```
 
-### 12. 验证子网清理
+### 12. Verify Subnet Cleanup
 ```bash
-# 检查子网标签
+# Check subnet labels
 aws ec2 describe-subnets --subnet-ids <subnet-id> --query 'Subnets[0].Tags'
 
-# 应该没有 kubernetes.io/cluster/ 标签
+# Should have no kubernetes.io/cluster/ labels
 ```
 
-### 13. 清理VPC
+### 13. Clean up VPC
 ```bash
 aws cloudformation delete-stack --stack-name ocp-25698-shared-vpc
 ```
 
-## 验证要点
+## Verification Points
 
-### 子网标签验证
-在集群销毁过程中，应该看到以下日志：
+### Subnet Label Verification
+During cluster destruction, you should see the following logs:
 ```
 DEBUG search for untaggable resources              
 DEBUG Search for and remove tags in us-east-2 matching kubernetes.io/cluster/<INFRA_ID>: shared
 INFO Removed tag kubernetes.io/cluster/<INFRA_ID>: shared  arn="arn:aws:ec2:us-east-2:<ACCOUNT>:subnet/<SUBNET-ID>"
 ```
 
-### 子网重用验证
-- 集群A和集群B应该能够使用相同的子网
-- 集群A销毁后，集群B应该仍然正常工作
-- 子网标签应该正确清理，允许后续重用
+### Subnet Reuse Verification
+- Clusters A and B should be able to use the same subnets
+- After Cluster A is destroyed, Cluster B should still work normally
+- Subnet labels should be cleaned up correctly to allow subsequent reuse
 
-### Machine API验证
-- 扩缩容操作应该成功
-- 新节点应该正确加入集群
-- 节点应该获得正确的网络配置
+### Machine API Verification
+- Scaling operations should succeed
+- New nodes should correctly join the cluster
+- Nodes should receive correct network configuration
 
-### MachineSet名称格式
-MachineSet名称通常遵循以下格式：
-- `weli-clus-a-<random-string>-worker-<az>` (集群A)
-- `weli-clus-b-<random-string>-worker-<az>` (集群B)
+### MachineSet Name Format
+MachineSet names typically follow this format:
+- `weli-clus-a-<random-string>-worker-<az>` (Cluster A)
+- `weli-clus-b-<random-string>-worker-<az>` (Cluster B)
 
-例如：
+For example:
 - `weli-clus-a-abc123-worker-us-east-2a`
 - `weli-clus-a-abc123-worker-us-east-2b`
 - `weli-clus-b-def456-worker-us-east-2a`
 - `weli-clus-b-def456-worker-us-east-2b`
 
-### 完整的扩缩容流程示例
+### Complete Scaling Process Example
 
-#### 使用自动化脚本（推荐）
+#### Using Automation Scripts (Recommended)
 ```bash
-# 1. 集群A扩缩容
+# 1. Cluster A scaling
 ./scale-cluster.sh --kubeconfig /path/to/cluster-a/auth/kubeconfig --replicas 4 --wait
 
-# 2. 集群B扩缩容
+# 2. Cluster B scaling
 ./scale-cluster.sh --kubeconfig /path/to/cluster-b/auth/kubeconfig --replicas 4 --wait
 
-# 3. 集群B再次扩缩容（测试子网重用）
+# 3. Cluster B scaling again (testing subnet reuse)
 ./scale-cluster.sh --kubeconfig /path/to/cluster-b/auth/kubeconfig --replicas 6 --wait
 ```
 
-#### 手动扩缩容流程
+#### Manual Scaling Process
 ```bash
-# 1. 切换到集群A
+# 1. Switch to Cluster A
 export KUBECONFIG=/path/to/cluster-a/auth/kubeconfig
 
-# 2. 查看MachineSet
+# 2. View MachineSets
 oc get machinesets -n openshift-machine-api
 
-# 3. 扩缩容（假设MachineSet名称是 weli-clus-a-abc123-worker-us-east-2a）
+# 3. Scale (assuming MachineSet name is weli-clus-a-abc123-worker-us-east-2a)
 oc scale machineset weli-clus-a-abc123-worker-us-east-2a -n openshift-machine-api --replicas=4
 
-# 4. 等待新节点就绪
+# 4. Wait for new nodes to be ready
 oc get nodes -w
 
-# 5. 切换到集群B
+# 5. Switch to Cluster B
 export KUBECONFIG=/path/to/cluster-b/auth/kubeconfig
 
-# 6. 对集群B执行相同操作
+# 6. Perform same operations for Cluster B
 oc get machinesets -n openshift-machine-api
 oc scale machineset <machineset-name> -n openshift-machine-api --replicas=4
 ```
 
-## 故障排除
+## Troubleshooting
 
-### 常见问题
+### Common Issues
 
-1. **子网标签冲突**
-   - 确保使用 `tag-subnets.sh` 脚本正确标记子网
-   - 检查标签值是否为 `shared`
+1. **Subnet Label Conflicts**
+   - Ensure subnets are correctly labeled using the `tag-subnets.sh` script
+   - Check that label values are `shared`
 
-2. **集群安装失败**
-   - 验证子网ID是否正确
-   - 检查VPC和子网配置
-   - 确认AWS权限充足
+2. **Cluster Installation Failed**
+   - Verify subnet IDs are correct
+   - Check VPC and subnet configuration
+   - Confirm AWS permissions are sufficient
 
-3. **扩缩容失败**
-   - 检查MachineSet配置
-   - 验证子网容量
-   - 查看Machine API日志
+3. **Scaling Failed**
+   - Check MachineSet configuration
+   - Verify subnet capacity
+   - View Machine API logs
 
-4. **销毁后标签残留**
-   - 检查openshift-install日志
-   - 手动清理残留标签
-   - 验证子网状态
+4. **Label Residue After Destruction**
+   - Check openshift-install logs
+   - Manually clean up residual labels
+   - Verify subnet status
 
-### 调试命令
+### Debug Commands
 ```bash
-# 检查子网标签
+# Check subnet labels
 aws ec2 describe-subnets --subnet-ids <subnet-id> --query 'Subnets[0].Tags'
 
-# 检查VPC状态
+# Check VPC status
 aws ec2 describe-vpcs --vpc-ids <vpc-id>
 
-# 检查集群状态
+# Check cluster status
 oc get nodes -o wide
 oc get machinesets -n openshift-machine-api
 oc get machines -n openshift-machine-api
 
-# 检查MachineSet详细信息
+# Check MachineSet details
 oc describe machineset <machineset-name> -n openshift-machine-api
 
-# 检查Machine状态
+# Check Machine status
 oc describe machine <machine-name> -n openshift-machine-api
 
-# 检查节点标签和污点
+# Check node labels and taints
 oc get nodes --show-labels
 oc describe node <node-name>
 ```
 
-## 依赖要求
+## Requirements
 
-### 必需工具
-- `aws` CLI - AWS命令行工具
-- `openshift-install` - OpenShift安装工具
-- `oc` - OpenShift客户端工具
-- `jq` - JSON处理工具
+### Required Tools
+- `aws` CLI - AWS command line tool
+- `openshift-install` - OpenShift installation tool
+- `oc` - OpenShift client tool
+- `jq` - JSON processing tool
 
-### AWS权限
-- EC2权限（VPC、子网、实例管理）
-- CloudFormation权限（堆栈管理）
-- IAM权限（角色和策略管理）
+### AWS Permissions
+- EC2 permissions (VPC, subnet, instance management)
+- CloudFormation permissions (stack management)
+- IAM permissions (role and policy management)
 
-### 网络要求
-- 子网必须支持多可用区
-- 子网CIDR不能重叠
-- 必须包含公共和私有子网
+### Network Requirements
+- Subnets must support multiple availability zones
+- Subnet CIDRs must not overlap
+- Must include both public and private subnets
 
-## 相关文档
+## Related Documentation
 
-- [OpenShift IPI安装文档](https://docs.openshift.com/container-platform/latest/installing/installing_aws/installing-aws-installer.html)
-- [AWS VPC和子网文档](https://docs.aws.amazon.com/vpc/)
-- [OpenShift Machine API文档](https://docs.openshift.com/container-platform/latest/machine_management/)
+- [OpenShift IPI Installation Documentation](https://docs.openshift.com/container-platform/latest/installing/installing_aws/installing-aws-installer.html)
+- [AWS VPC and Subnet Documentation](https://docs.aws.amazon.com/vpc/)
+- [OpenShift Machine API Documentation](https://docs.openshift.com/container-platform/latest/machine_management/)
 - [OCP-25698 JIRA](https://issues.redhat.com/browse/OCP-25698)
