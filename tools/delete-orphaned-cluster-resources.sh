@@ -349,28 +349,42 @@ delete_load_balancers() {
     done
 }
 
+# Function to display help
+show_help() {
+    echo "Usage: $0 <cluster-name> [aws-region] [--dry-run]"
+    echo "       $0 --help"
+    echo ""
+    echo "Arguments:"
+    echo "  cluster-name : Name of the cluster to delete resources for"
+    echo "  aws-region   : AWS region (default: us-east-1)"
+    echo "  --dry-run    : Show what would be deleted without actually deleting"
+    echo "  --help       : Show this help message and exit"
+    echo ""
+    echo "Examples:"
+    echo "  $0 weli-test"
+    echo "  $0 weli-test us-east-2"
+    echo "  $0 weli-test us-east-1 --dry-run"
+    echo "  $0 --help"
+    echo ""
+    echo "This script will delete:"
+    echo "  - Route53 records in qe.devcluster.openshift.com"
+    echo "  - CloudFormation stacks containing the cluster name"
+    echo "  - S3 buckets containing the cluster name"
+    echo "  - EC2 instances and volumes with cluster name in tags"
+    echo "  - Load Balancers containing the cluster name"
+}
+
 # Main function
 main() {
     if [ "$#" -lt 1 ]; then
-        echo "Usage: $0 <cluster-name> [aws-region] [--dry-run]"
-        echo ""
-        echo "Arguments:"
-        echo "  cluster-name : Name of the cluster to delete resources for"
-        echo "  aws-region  : AWS region (default: us-east-1)"
-        echo "  --dry-run   : Show what would be deleted without actually deleting"
-        echo ""
-        echo "Examples:"
-        echo "  $0 weli-test"
-        echo "  $0 weli-test us-east-2"
-        echo "  $0 weli-test us-east-1 --dry-run"
-        echo ""
-        echo "This script will delete:"
-        echo "  - Route53 records in qe.devcluster.openshift.com"
-        echo "  - CloudFormation stacks containing the cluster name"
-        echo "  - S3 buckets containing the cluster name"
-        echo "  - EC2 instances and volumes with cluster name in tags"
-        echo "  - Load Balancers containing the cluster name"
+        show_help
         exit 1
+    fi
+
+    # Check for help option first
+    if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+        show_help
+        exit 0
     fi
 
     local cluster_name="$1"
