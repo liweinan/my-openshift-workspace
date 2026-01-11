@@ -223,7 +223,8 @@ echo "Step 5: Test invalid throughput type (string)"
 cp "${BACKUP_DIR}/base-install-config.yaml" "${CONFIG}"
 yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.type = "gp3"' "${CONFIG}"
 yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.size = 120' "${CONFIG}"
-sed -i.bak 's/throughput:.*/throughput: "500"/' "${CONFIG}"
+# Set throughput as string directly
+yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.throughput = "500"' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step5-install-config.yaml"
 output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1)
 exit_code=$?
