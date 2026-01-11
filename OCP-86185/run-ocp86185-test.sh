@@ -127,6 +127,9 @@ EOF
 # Backup base config
 cp "${CONFIG}" "${BACKUP_DIR}/base-install-config.yaml"
 
+# Disable errexit for test execution (we want all tests to run)
+set +o errexit
+
 # Test Step 1: Below minimum boundary (124)
 echo "Step 1: Test just below minimum boundary (124)"
 cp "${BACKUP_DIR}/base-install-config.yaml" "${CONFIG}"
@@ -134,9 +137,10 @@ yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.type = "gp3"' "${CON
 yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.size = 120' "${CONFIG}"
 yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.throughput = 124' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step1-install-config.yaml"
-output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
+output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1)
+exit_code=$?
 echo "${output}"
-if [[ ${exit_code:-0} -ne 0 ]] && echo "${output}" | grep -qi "throughput must be between 125.*2000"; then
+if [[ ${exit_code} -ne 0 ]] && echo "${output}" | grep -qi "throughput must be between 125.*2000"; then
     echo "  PASSED"
     ((PASSED++))
 elif echo "${output}" | grep -qiE "unknown field.*throughput|failed to parse first occurrence of unknown field.*throughput"; then
@@ -155,9 +159,10 @@ yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.type = "gp3"' "${CON
 yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.size = 120' "${CONFIG}"
 yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.throughput = 2001' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step2-install-config.yaml"
-output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
+output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1)
+exit_code=$?
 echo "${output}"
-if [[ ${exit_code:-0} -ne 0 ]] && echo "${output}" | grep -qi "throughput must be between 125.*2000"; then
+if [[ ${exit_code} -ne 0 ]] && echo "${output}" | grep -qi "throughput must be between 125.*2000"; then
     echo "  PASSED"
     ((PASSED++))
 elif echo "${output}" | grep -qiE "unknown field.*throughput|failed to parse first occurrence of unknown field.*throughput"; then
@@ -176,9 +181,10 @@ yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.type = "gp3"' "${CON
 yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.size = 120' "${CONFIG}"
 yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.throughput = 0' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step3-install-config.yaml"
-output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
+output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1)
+exit_code=$?
 echo "${output}"
-if [[ ${exit_code:-0} -ne 0 ]] && echo "${output}" | grep -qi "throughput must be between 125.*2000"; then
+if [[ ${exit_code} -ne 0 ]] && echo "${output}" | grep -qi "throughput must be between 125.*2000"; then
     echo "  PASSED"
     ((PASSED++))
 elif echo "${output}" | grep -qiE "unknown field.*throughput|failed to parse first occurrence of unknown field.*throughput"; then
@@ -197,9 +203,10 @@ yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.type = "gp3"' "${CON
 yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.size = 120' "${CONFIG}"
 yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.throughput = -100' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step4-install-config.yaml"
-output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
+output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1)
+exit_code=$?
 echo "${output}"
-if [[ ${exit_code:-0} -ne 0 ]] && echo "${output}" | grep -qi "throughput must be between 125.*2000"; then
+if [[ ${exit_code} -ne 0 ]] && echo "${output}" | grep -qi "throughput must be between 125.*2000"; then
     echo "  PASSED"
     ((PASSED++))
 elif echo "${output}" | grep -qiE "unknown field.*throughput|failed to parse first occurrence of unknown field.*throughput"; then
@@ -218,9 +225,10 @@ yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.type = "gp3"' "${CON
 yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.size = 120' "${CONFIG}"
 sed -i.bak 's/throughput:.*/throughput: "500"/' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step5-install-config.yaml"
-output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
+output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1)
+exit_code=$?
 echo "${output}"
-if [[ ${exit_code:-0} -ne 0 ]] && echo "${output}" | grep -qi "cannot unmarshal string.*throughput"; then
+if [[ ${exit_code} -ne 0 ]] && echo "${output}" | grep -qi "cannot unmarshal string.*throughput"; then
     echo "  PASSED"
     ((PASSED++))
 elif echo "${output}" | grep -qi "unknown field.*throughput"; then
@@ -239,9 +247,10 @@ yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.type = "gp2"' "${CON
 yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.size = 120' "${CONFIG}"
 yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.throughput = 500' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step6-install-config.yaml"
-output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
+output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1)
+exit_code=$?
 echo "${output}"
-if [[ ${exit_code:-0} -ne 0 ]] && echo "${output}" | grep -qi "throughput not supported for type gp2"; then
+if [[ ${exit_code} -ne 0 ]] && echo "${output}" | grep -qi "throughput not supported for type gp2"; then
     echo "  PASSED"
     ((PASSED++))
 elif echo "${output}" | grep -qi "unknown field.*throughput"; then
@@ -260,9 +269,10 @@ yq-go e -i '.controlPlane.platform.aws.rootVolume.type = "gp3"' "${CONFIG}"
 yq-go e -i '.controlPlane.platform.aws.rootVolume.size = 150' "${CONFIG}"
 yq-go e -i '.controlPlane.platform.aws.rootVolume.throughput = 50' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step7-install-config.yaml"
-output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
+output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1)
+exit_code=$?
 echo "${output}"
-if [[ ${exit_code:-0} -ne 0 ]] && echo "${output}" | grep -qi "throughput must be between 125.*2000"; then
+if [[ ${exit_code} -ne 0 ]] && echo "${output}" | grep -qi "throughput must be between 125.*2000"; then
     echo "  PASSED"
     ((PASSED++))
 elif echo "${output}" | grep -qiE "unknown field.*throughput|failed to parse first occurrence of unknown field.*throughput"; then
@@ -281,9 +291,10 @@ yq-go e -i '.controlPlane.platform.aws.rootVolume.type = "gp3"' "${CONFIG}"
 yq-go e -i '.controlPlane.platform.aws.rootVolume.size = 150' "${CONFIG}"
 yq-go e -i '.controlPlane.platform.aws.rootVolume.throughput = 5000' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step8-install-config.yaml"
-output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
+output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1)
+exit_code=$?
 echo "${output}"
-if [[ ${exit_code:-0} -ne 0 ]] && echo "${output}" | grep -qi "throughput must be between 125.*2000"; then
+if [[ ${exit_code} -ne 0 ]] && echo "${output}" | grep -qi "throughput must be between 125.*2000"; then
     echo "  PASSED"
     ((PASSED++))
 elif echo "${output}" | grep -qiE "unknown field.*throughput|failed to parse first occurrence of unknown field.*throughput"; then
@@ -303,9 +314,10 @@ yq-go e -i '.compute[0].platform.aws.rootVolume.type = "gp3"' "${CONFIG}"
 yq-go e -i '.compute[0].platform.aws.rootVolume.size = 120' "${CONFIG}"
 yq-go e -i '.compute[0].platform.aws.rootVolume.throughput = 50' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step9-install-config.yaml"
-output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
+output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1)
+exit_code=$?
 echo "${output}"
-if [[ ${exit_code:-0} -ne 0 ]] && echo "${output}" | grep -qi "throughput must be between 125.*2000"; then
+if [[ ${exit_code} -ne 0 ]] && echo "${output}" | grep -qi "throughput must be between 125.*2000"; then
     echo "  PASSED"
     ((PASSED++))
 elif echo "${output}" | grep -qiE "unknown field.*throughput|failed to parse first occurrence of unknown field.*throughput"; then
@@ -325,9 +337,10 @@ yq-go e -i '.compute[0].platform.aws.rootVolume.type = "gp3"' "${CONFIG}"
 yq-go e -i '.compute[0].platform.aws.rootVolume.size = 120' "${CONFIG}"
 yq-go e -i '.compute[0].platform.aws.rootVolume.throughput = 5000' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step10-install-config.yaml"
-output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
+output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1)
+exit_code=$?
 echo "${output}"
-if [[ ${exit_code:-0} -ne 0 ]] && echo "${output}" | grep -qi "throughput must be between 125.*2000"; then
+if [[ ${exit_code} -ne 0 ]] && echo "${output}" | grep -qi "throughput must be between 125.*2000"; then
     echo "  PASSED"
     ((PASSED++))
 elif echo "${output}" | grep -qiE "unknown field.*throughput|failed to parse first occurrence of unknown field.*throughput"; then
@@ -346,9 +359,10 @@ yq-go e -i '.controlPlane.platform.aws.rootVolume.type = "gp2"' "${CONFIG}"
 yq-go e -i '.controlPlane.platform.aws.rootVolume.size = 150' "${CONFIG}"
 yq-go e -i '.controlPlane.platform.aws.rootVolume.throughput = 500' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step11-install-config.yaml"
-output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
+output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1)
+exit_code=$?
 echo "${output}"
-if [[ ${exit_code:-0} -ne 0 ]] && echo "${output}" | grep -qi "throughput not supported for type gp2"; then
+if [[ ${exit_code} -ne 0 ]] && echo "${output}" | grep -qi "throughput not supported for type gp2"; then
     echo "  PASSED"
     ((PASSED++))
 elif echo "${output}" | grep -qi "unknown field.*throughput"; then
@@ -368,9 +382,10 @@ yq-go e -i '.compute[0].platform.aws.rootVolume.type = "gp2"' "${CONFIG}"
 yq-go e -i '.compute[0].platform.aws.rootVolume.size = 120' "${CONFIG}"
 yq-go e -i '.compute[0].platform.aws.rootVolume.throughput = 500' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step12-install-config.yaml"
-output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
+output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1)
+exit_code=$?
 echo "${output}"
-if [[ ${exit_code:-0} -ne 0 ]] && echo "${output}" | grep -qi "throughput not supported for type gp2"; then
+if [[ ${exit_code} -ne 0 ]] && echo "${output}" | grep -qi "throughput not supported for type gp2"; then
     echo "  PASSED"
     ((PASSED++))
 elif echo "${output}" | grep -qi "unknown field.*throughput"; then
@@ -389,9 +404,10 @@ yq-go e -i '.compute[0].name = "worker"' "${CONFIG}"
 yq-go e -i '.compute[0].platform.aws.rootVolume.size = 120' "${CONFIG}"
 yq-go e -i '.compute[0].platform.aws.rootVolume.throughput = 0' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step13-install-config.yaml"
-output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
+output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1)
+exit_code=$?
 echo "${output}"
-if [[ ${exit_code:-0} -ne 0 ]] && echo "${output}" | grep -qi "throughput must be between 125.*2000"; then
+if [[ ${exit_code} -ne 0 ]] && echo "${output}" | grep -qi "throughput must be between 125.*2000"; then
     echo "  PASSED"
     ((PASSED++))
 elif echo "${output}" | grep -qiE "unknown field.*throughput|failed to parse first occurrence of unknown field.*throughput"; then
@@ -409,9 +425,10 @@ cp "${BACKUP_DIR}/base-install-config.yaml" "${CONFIG}"
 yq-go e -i '.controlPlane.platform.aws.rootVolume.size = 150' "${CONFIG}"
 yq-go e -i '.controlPlane.platform.aws.rootVolume.throughput = 0' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step14-install-config.yaml"
-output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
+output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1)
+exit_code=$?
 echo "${output}"
-if [[ ${exit_code:-0} -ne 0 ]] && echo "${output}" | grep -qi "throughput must be between 125.*2000"; then
+if [[ ${exit_code} -ne 0 ]] && echo "${output}" | grep -qi "throughput must be between 125.*2000"; then
     echo "  PASSED"
     ((PASSED++))
 elif echo "${output}" | grep -qiE "unknown field.*throughput|failed to parse first occurrence of unknown field.*throughput"; then
@@ -433,9 +450,10 @@ yq-go e -i '.compute[0].platform.aws.rootVolume.size = 120' "${CONFIG}"
 yq-go e -i '.compute[0].platform.aws.rootVolume.throughput = 1200' "${CONFIG}"
 yq-go e -i '.compute[0].replicas = 1' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step15-install-config.yaml"
-output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
+output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1)
+exit_code=$?
 echo "${output}"
-if [[ ${exit_code:-0} -ne 0 ]] && echo "${output}" | grep -qi "throughput not supported for type gp2"; then
+if [[ ${exit_code} -ne 0 ]] && echo "${output}" | grep -qi "throughput not supported for type gp2"; then
     echo "  PASSED"
     ((PASSED++))
 elif echo "${output}" | grep -qi "unknown field.*throughput"; then
@@ -446,6 +464,9 @@ else
     [[ "${VERBOSE}" == "true" ]] && echo "${output}" | head -20
     ((FAILED++))
 fi
+
+# Re-enable errexit for summary
+set -o errexit
 
 # Print summary
 echo ""
