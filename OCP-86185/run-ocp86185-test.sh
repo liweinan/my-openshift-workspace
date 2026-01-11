@@ -130,9 +130,9 @@ cp "${CONFIG}" "${BACKUP_DIR}/base-install-config.yaml"
 # Test Step 1: Below minimum boundary (124)
 echo "Step 1: Test just below minimum boundary (124)"
 cp "${BACKUP_DIR}/base-install-config.yaml" "${CONFIG}"
-yq-go w -i "${CONFIG}" "platform.aws.defaultMachinePlatform.rootVolume.type" "gp3"
-yq-go w -i "${CONFIG}" "platform.aws.defaultMachinePlatform.rootVolume.size" "120"
-yq-go w -i "${CONFIG}" "platform.aws.defaultMachinePlatform.rootVolume.throughput" "124"
+yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.type = "gp3"' "${CONFIG}"
+yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.size = 120' "${CONFIG}"
+yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.throughput = 124' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step1-install-config.yaml"
 output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
 echo "${output}"
@@ -151,9 +151,9 @@ fi
 # Test Step 2: Above maximum boundary (2001)
 echo "Step 2: Test just above maximum boundary (2001)"
 cp "${BACKUP_DIR}/base-install-config.yaml" "${CONFIG}"
-yq-go w -i "${CONFIG}" "platform.aws.defaultMachinePlatform.rootVolume.type" "gp3"
-yq-go w -i "${CONFIG}" "platform.aws.defaultMachinePlatform.rootVolume.size" "120"
-yq-go w -i "${CONFIG}" "platform.aws.defaultMachinePlatform.rootVolume.throughput" "2001"
+yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.type = "gp3"' "${CONFIG}"
+yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.size = 120' "${CONFIG}"
+yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.throughput = 2001' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step2-install-config.yaml"
 output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
 echo "${output}"
@@ -172,9 +172,9 @@ fi
 # Test Step 3: Throughput zero
 echo "Step 3: Test throughput value zero"
 cp "${BACKUP_DIR}/base-install-config.yaml" "${CONFIG}"
-yq-go w -i "${CONFIG}" "platform.aws.defaultMachinePlatform.rootVolume.type" "gp3"
-yq-go w -i "${CONFIG}" "platform.aws.defaultMachinePlatform.rootVolume.size" "120"
-yq-go w -i "${CONFIG}" "platform.aws.defaultMachinePlatform.rootVolume.throughput" "0"
+yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.type = "gp3"' "${CONFIG}"
+yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.size = 120' "${CONFIG}"
+yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.throughput = 0' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step3-install-config.yaml"
 output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
 echo "${output}"
@@ -193,9 +193,9 @@ fi
 # Test Step 4: Negative throughput value
 echo "Step 4: Test negative throughput value"
 cp "${BACKUP_DIR}/base-install-config.yaml" "${CONFIG}"
-yq-go w -i "${CONFIG}" "platform.aws.defaultMachinePlatform.rootVolume.type" "gp3"
-yq-go w -i "${CONFIG}" "platform.aws.defaultMachinePlatform.rootVolume.size" "120"
-yq-go w -i -- "${CONFIG}" "platform.aws.defaultMachinePlatform.rootVolume.throughput" "-100"
+yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.type = "gp3"' "${CONFIG}"
+yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.size = 120' "${CONFIG}"
+yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.throughput = -100' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step4-install-config.yaml"
 output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
 echo "${output}"
@@ -214,8 +214,8 @@ fi
 # Test Step 5: Invalid throughput type (string)
 echo "Step 5: Test invalid throughput type (string)"
 cp "${BACKUP_DIR}/base-install-config.yaml" "${CONFIG}"
-yq-go w -i "${CONFIG}" "platform.aws.defaultMachinePlatform.rootVolume.type" "gp3"
-yq-go w -i "${CONFIG}" "platform.aws.defaultMachinePlatform.rootVolume.size" "120"
+yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.type = "gp3"' "${CONFIG}"
+yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.size = 120' "${CONFIG}"
 sed -i.bak 's/throughput:.*/throughput: "500"/' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step5-install-config.yaml"
 output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
@@ -235,9 +235,9 @@ fi
 # Test Step 6: Unsupported volume type with throughput
 echo "Step 6: Test unsupported volume type with throughput"
 cp "${BACKUP_DIR}/base-install-config.yaml" "${CONFIG}"
-yq-go w -i "${CONFIG}" "platform.aws.defaultMachinePlatform.rootVolume.type" "gp2"
-yq-go w -i "${CONFIG}" "platform.aws.defaultMachinePlatform.rootVolume.size" "120"
-yq-go w -i "${CONFIG}" "platform.aws.defaultMachinePlatform.rootVolume.throughput" "500"
+yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.type = "gp2"' "${CONFIG}"
+yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.size = 120' "${CONFIG}"
+yq-go e -i '.platform.aws.defaultMachinePlatform.rootVolume.throughput = 500' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step6-install-config.yaml"
 output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
 echo "${output}"
@@ -256,9 +256,9 @@ fi
 # Test Step 7: Control plane below minimum boundary
 echo "Step 7: Test split configuration below minimum boundary (control plane)"
 cp "${BACKUP_DIR}/base-install-config.yaml" "${CONFIG}"
-yq-go w -i "${CONFIG}" "controlPlane.platform.aws.rootVolume.type" "gp3"
-yq-go w -i "${CONFIG}" "controlPlane.platform.aws.rootVolume.size" "150"
-yq-go w -i "${CONFIG}" "controlPlane.platform.aws.rootVolume.throughput" "50"
+yq-go e -i '.controlPlane.platform.aws.rootVolume.type = "gp3"' "${CONFIG}"
+yq-go e -i '.controlPlane.platform.aws.rootVolume.size = 150' "${CONFIG}"
+yq-go e -i '.controlPlane.platform.aws.rootVolume.throughput = 50' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step7-install-config.yaml"
 output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
 echo "${output}"
@@ -277,9 +277,9 @@ fi
 # Test Step 8: Control plane above maximum boundary
 echo "Step 8: Test split configuration above maximum boundary (control plane)"
 cp "${BACKUP_DIR}/base-install-config.yaml" "${CONFIG}"
-yq-go w -i "${CONFIG}" "controlPlane.platform.aws.rootVolume.type" "gp3"
-yq-go w -i "${CONFIG}" "controlPlane.platform.aws.rootVolume.size" "150"
-yq-go w -i "${CONFIG}" "controlPlane.platform.aws.rootVolume.throughput" "5000"
+yq-go e -i '.controlPlane.platform.aws.rootVolume.type = "gp3"' "${CONFIG}"
+yq-go e -i '.controlPlane.platform.aws.rootVolume.size = 150' "${CONFIG}"
+yq-go e -i '.controlPlane.platform.aws.rootVolume.throughput = 5000' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step8-install-config.yaml"
 output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
 echo "${output}"
@@ -298,10 +298,10 @@ fi
 # Test Step 9: Compute below minimum boundary
 echo "Step 9: Test split configuration below minimum boundary (compute)"
 cp "${BACKUP_DIR}/base-install-config.yaml" "${CONFIG}"
-yq-go w -i "${CONFIG}" "compute[0].name" "worker"
-yq-go w -i "${CONFIG}" "compute[0].platform.aws.rootVolume.type" "gp3"
-yq-go w -i "${CONFIG}" "compute[0].platform.aws.rootVolume.size" "120"
-yq-go w -i "${CONFIG}" "compute[0].platform.aws.rootVolume.throughput" "50"
+yq-go e -i '.compute[0].name = "worker"' "${CONFIG}"
+yq-go e -i '.compute[0].platform.aws.rootVolume.type = "gp3"' "${CONFIG}"
+yq-go e -i '.compute[0].platform.aws.rootVolume.size = 120' "${CONFIG}"
+yq-go e -i '.compute[0].platform.aws.rootVolume.throughput = 50' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step9-install-config.yaml"
 output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
 echo "${output}"
@@ -320,10 +320,10 @@ fi
 # Test Step 10: Compute above maximum boundary
 echo "Step 10: Test split configuration above maximum boundary (compute)"
 cp "${BACKUP_DIR}/base-install-config.yaml" "${CONFIG}"
-yq-go w -i "${CONFIG}" "compute[0].name" "worker"
-yq-go w -i "${CONFIG}" "compute[0].platform.aws.rootVolume.type" "gp3"
-yq-go w -i "${CONFIG}" "compute[0].platform.aws.rootVolume.size" "120"
-yq-go w -i "${CONFIG}" "compute[0].platform.aws.rootVolume.throughput" "5000"
+yq-go e -i '.compute[0].name = "worker"' "${CONFIG}"
+yq-go e -i '.compute[0].platform.aws.rootVolume.type = "gp3"' "${CONFIG}"
+yq-go e -i '.compute[0].platform.aws.rootVolume.size = 120' "${CONFIG}"
+yq-go e -i '.compute[0].platform.aws.rootVolume.throughput = 5000' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step10-install-config.yaml"
 output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
 echo "${output}"
@@ -342,9 +342,9 @@ fi
 # Test Step 11: Control plane unsupported volume type
 echo "Step 11: Test split configuration with unsupported volume type (control plane)"
 cp "${BACKUP_DIR}/base-install-config.yaml" "${CONFIG}"
-yq-go w -i "${CONFIG}" "controlPlane.platform.aws.rootVolume.type" "gp2"
-yq-go w -i "${CONFIG}" "controlPlane.platform.aws.rootVolume.size" "150"
-yq-go w -i "${CONFIG}" "controlPlane.platform.aws.rootVolume.throughput" "500"
+yq-go e -i '.controlPlane.platform.aws.rootVolume.type = "gp2"' "${CONFIG}"
+yq-go e -i '.controlPlane.platform.aws.rootVolume.size = 150' "${CONFIG}"
+yq-go e -i '.controlPlane.platform.aws.rootVolume.throughput = 500' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step11-install-config.yaml"
 output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
 echo "${output}"
@@ -363,10 +363,10 @@ fi
 # Test Step 12: Compute unsupported volume type
 echo "Step 12: Test split configuration with unsupported volume type (compute)"
 cp "${BACKUP_DIR}/base-install-config.yaml" "${CONFIG}"
-yq-go w -i "${CONFIG}" "compute[0].name" "worker"
-yq-go w -i "${CONFIG}" "compute[0].platform.aws.rootVolume.type" "gp2"
-yq-go w -i "${CONFIG}" "compute[0].platform.aws.rootVolume.size" "120"
-yq-go w -i "${CONFIG}" "compute[0].platform.aws.rootVolume.throughput" "500"
+yq-go e -i '.compute[0].name = "worker"' "${CONFIG}"
+yq-go e -i '.compute[0].platform.aws.rootVolume.type = "gp2"' "${CONFIG}"
+yq-go e -i '.compute[0].platform.aws.rootVolume.size = 120' "${CONFIG}"
+yq-go e -i '.compute[0].platform.aws.rootVolume.throughput = 500' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step12-install-config.yaml"
 output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
 echo "${output}"
@@ -385,9 +385,9 @@ fi
 # Test Step 13: Compute throughput zero without volume type
 echo "Step 13: Test throughput zero without volume type (compute)"
 cp "${BACKUP_DIR}/base-install-config.yaml" "${CONFIG}"
-yq-go w -i "${CONFIG}" "compute[0].name" "worker"
-yq-go w -i "${CONFIG}" "compute[0].platform.aws.rootVolume.size" "120"
-yq-go w -i "${CONFIG}" "compute[0].platform.aws.rootVolume.throughput" "0"
+yq-go e -i '.compute[0].name = "worker"' "${CONFIG}"
+yq-go e -i '.compute[0].platform.aws.rootVolume.size = 120' "${CONFIG}"
+yq-go e -i '.compute[0].platform.aws.rootVolume.throughput = 0' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step13-install-config.yaml"
 output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
 echo "${output}"
@@ -406,8 +406,8 @@ fi
 # Test Step 14: Control plane throughput zero without volume type
 echo "Step 14: Test throughput zero without volume type (control plane)"
 cp "${BACKUP_DIR}/base-install-config.yaml" "${CONFIG}"
-yq-go w -i "${CONFIG}" "controlPlane.platform.aws.rootVolume.size" "150"
-yq-go w -i "${CONFIG}" "controlPlane.platform.aws.rootVolume.throughput" "0"
+yq-go e -i '.controlPlane.platform.aws.rootVolume.size = 150' "${CONFIG}"
+yq-go e -i '.controlPlane.platform.aws.rootVolume.throughput = 0' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step14-install-config.yaml"
 output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
 echo "${output}"
@@ -426,12 +426,12 @@ fi
 # Test Step 15: Edge compute pool throughput without volume type
 echo "Step 15: Test throughput without volume type for edge compute pool"
 cp "${BACKUP_DIR}/base-install-config.yaml" "${CONFIG}"
-yq-go w -i "${CONFIG}" "compute[0].architecture" "amd64"
-yq-go w -i "${CONFIG}" "compute[0].hyperthreading" "Enabled"
-yq-go w -i "${CONFIG}" "compute[0].name" "edge"
-yq-go w -i "${CONFIG}" "compute[0].platform.aws.rootVolume.size" "120"
-yq-go w -i "${CONFIG}" "compute[0].platform.aws.rootVolume.throughput" "1200"
-yq-go w -i "${CONFIG}" "compute[0].replicas" "1"
+yq-go e -i '.compute[0].architecture = "amd64"' "${CONFIG}"
+yq-go e -i '.compute[0].hyperthreading = "Enabled"' "${CONFIG}"
+yq-go e -i '.compute[0].name = "edge"' "${CONFIG}"
+yq-go e -i '.compute[0].platform.aws.rootVolume.size = 120' "${CONFIG}"
+yq-go e -i '.compute[0].platform.aws.rootVolume.throughput = 1200' "${CONFIG}"
+yq-go e -i '.compute[0].replicas = 1' "${CONFIG}"
 cp "${CONFIG}" "${BACKUP_DIR}/step15-install-config.yaml"
 output=$("${OPENSHIFT_INSTALL_PATH}" create manifests --dir "${CONFIG_DIR}" 2>&1) || exit_code=$?
 echo "${output}"
