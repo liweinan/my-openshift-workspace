@@ -8,7 +8,13 @@
 
 ### **CAPI (Cluster API)**
 
-**Cluster API** 是一个 Kubernetes 子项目，提供了一组 Kubernetes 原生的 API 和控制器，用于声明性地管理集群的生命周期。
+**Cluster API** 是一个由 **Kubernetes 社区主导**的开源项目，由 **Cloud Native Computing Foundation (CNCF)** 托管。它提供了一组 Kubernetes 原生的 API 和控制器，用于声明性地管理集群的生命周期。
+
+**项目归属**：
+- ✅ **Kubernetes 社区项目**：开发和维护由 Kubernetes 社区负责
+- ✅ **CNCF 托管**：属于更广泛的 Kubernetes 生态系统
+- ✅ **超出 OpenShift 范围**：CAPI 的开发不在 OpenShift 项目范围内
+- ⚠️ **OpenShift 集成**：OpenShift 集成并支持 CAPI，但核心开发由社区负责
 
 **主要功能**：
 - 集群的创建、更新和删除
@@ -22,7 +28,12 @@
 
 ### **MAPI (Machine API)**
 
-**Machine API** 是 OpenShift 特有的组件，专注于管理集群中的机器资源。
+**Machine API** 是 **OpenShift 特有的组件**，由 **Red Hat/OpenShift 团队开发和维护**，专注于管理集群中的机器资源。
+
+**项目归属**：
+- ✅ **OpenShift 项目**：开发和维护在 OpenShift 项目范围内
+- ✅ **Red Hat 维护**：由 Red Hat 团队负责
+- ✅ **OpenShift 专用**：专门为 OpenShift 设计
 
 **主要功能**：
 - 节点的创建、扩展、缩减和删除
@@ -136,6 +147,53 @@ for file in openshift/99_openshift-machine-api_master-machines-*.yaml; do
 done
 ```
 
+## CAPI 能否完全覆盖 MAPI 的功能？
+
+### 短期答案：目前还不能完全覆盖
+
+**当前状态**：
+- CAPI **尚未完全覆盖** MAPI 的所有功能
+- 在过渡期间，OpenShift 同时支持 CAPI 和 MAPI
+- 某些特定场景下，MAPI 可能提供了更深入的集成和优化
+
+### 长期答案：目标是完全覆盖
+
+**OpenShift 的迁移路线图**：
+- **长期目标**：完全从 MAPI 迁移到 CAPI
+- **时间表**：计划在 **2027 年上半年**完成对 GCP 和 Azure 平台的迁移
+- **最终目标**：完全弃用 MAPI，统一使用 CAPI
+
+### 功能对比
+
+#### CAPI 的优势
+- ✅ **跨平台标准化**：基于 Kubernetes 社区标准
+- ✅ **多云支持**：提供跨基础设施提供商的一致接口
+- ✅ **社区驱动**：由 Kubernetes 社区维护和发展（超出 OpenShift 范围）
+- ✅ **标准化**：遵循 Cluster API 项目标准
+- ✅ **CNCF 托管**：属于更广泛的 Kubernetes 生态系统
+
+#### MAPI 的优势（当前）
+- ✅ **深度集成**：与 OpenShift 深度集成
+- ✅ **成熟稳定**：经过多年生产环境验证
+- ✅ **特定优化**：针对 OpenShift 特定场景的优化
+- ✅ **完整功能**：包含所有 OpenShift 机器管理功能
+- ✅ **OpenShift 控制**：开发和维护在 OpenShift 项目范围内
+
+### 迁移挑战
+
+1. **功能对等性**：需要确保 CAPI 提供与 MAPI 相同的所有功能
+2. **稳定性**：在迁移过程中保持系统稳定性
+3. **兼容性**：确保现有工作负载不受影响
+4. **用户体验**：保持用户操作的一致性
+
+### 迁移策略
+
+OpenShift 采用**渐进式迁移**策略：
+
+1. **阶段 1**：CAPI 和 MAPI 并存（当前阶段）
+2. **阶段 2**：逐步迁移各平台（AWS、GCP、Azure 等）
+3. **阶段 3**：完全迁移到 CAPI，弃用 MAPI
+
 ## 未来发展方向
 
 ### 长期目标
@@ -143,12 +201,14 @@ done
 根据 OpenShift 的路线图：
 - **完全迁移到 CAPI**：长期目标是完全基于 CAPI 标准
 - **统一管理接口**：提供一致的集群和机器管理体验
+- **弃用 MAPI**：在完全迁移后，MAPI 将被弃用
 
 ### 当前状态
 
 - **过渡期**：CAPI 和 MAPI 并存
 - **协同工作**：需要确保两者的一致性
 - **逐步迁移**：从 MAPI 逐步迁移到 CAPI
+- **功能差距**：CAPI 正在逐步补齐 MAPI 的功能
 
 ### 注意事项
 
@@ -156,6 +216,18 @@ done
 1. **一致性检查**：确保 CAPI 和 MAPI manifest 的一致性
 2. **兼容性测试**：验证两者协同工作的正确性
 3. **问题排查**：当出现问题时，需要同时检查 CAPI 和 MAPI 的配置
+4. **功能验证**：确认 CAPI 是否支持所需的功能
+
+## 项目归属对比
+
+| 特性 | CAPI (Cluster API) | MAPI (Machine API) |
+|------|-------------------|-------------------|
+| **项目归属** | Kubernetes 社区项目 | OpenShift/Red Hat 项目 |
+| **托管组织** | CNCF | Red Hat |
+| **开发范围** | 超出 OpenShift 范围 | 在 OpenShift 范围内 |
+| **维护者** | Kubernetes 社区 | Red Hat/OpenShift 团队 |
+| **标准化** | Kubernetes 社区标准 | OpenShift 专用 |
+| **适用范围** | 所有 Kubernetes 发行版 | OpenShift 专用 |
 
 ## 总结
 
@@ -166,20 +238,79 @@ OpenShift 同时使用 CAPI 和 MAPI 的原因：
 3. **过渡需要**：在完全迁移前需要两者协同工作
 4. **兼容性**：保持与现有系统的兼容性
 5. **自动化**：提供从集群到节点的全自动化管理能力
+6. **项目归属**：CAPI 是社区项目（超出 OpenShift 范围），MAPI 是 OpenShift 项目
 
 ### 关键要点
 
-- CAPI 和 MAPI 是**互补**的关系，不是替代关系
-- 在过渡期间，需要确保两者的**一致性**
-- 理解两者的区别有助于**问题排查**和**架构设计**
-- 未来将逐步统一到 CAPI 标准
+- **当前**：CAPI 和 MAPI 是**互补**的关系，不是替代关系
+- **未来**：CAPI 将**完全替代** MAPI（预计 2027 年）
+- **过渡期**：需要确保两者的**一致性**
+- **功能覆盖**：CAPI 正在逐步补齐 MAPI 的所有功能
+- **理解两者的区别**有助于**问题排查**和**架构设计**
 
-## 相关资源
+## 相关项目链接
 
-- [Cluster API 官方文档](https://cluster-api.sigs.k8s.io/)
-- [OpenShift Machine API Operator](https://docs.openshift.com/container-platform/latest/machine_management/index.html)
-- [OCPBUGS-69923](https://issues.redhat.com/browse/OCPBUGS-69923)
-- [GitHub PR #10188](https://github.com/openshift/installer/pull/10188)
+### Cluster API (CAPI) 相关项目
+
+#### 核心项目
+- **Cluster API 主项目**
+  - GitHub: [kubernetes-sigs/cluster-api](https://github.com/kubernetes-sigs/cluster-api)
+  - 官方文档: [cluster-api.sigs.k8s.io](https://cluster-api.sigs.k8s.io/)
+  - CNCF 项目页面: [CNCF Cluster API](https://www.cncf.io/projects/cluster-api/)
+
+#### AWS Provider
+- **Cluster API Provider AWS (CAPA)**
+  - GitHub: [kubernetes-sigs/cluster-api-provider-aws](https://github.com/kubernetes-sigs/cluster-api-provider-aws)
+  - 文档: [CAPA Documentation](https://cluster-api-aws.sigs.k8s.io/)
+
+#### 社区资源
+- **Kubernetes SIG Cluster Lifecycle**
+  - SIG 主页: [SIG Cluster Lifecycle](https://github.com/kubernetes/community/tree/master/sig-cluster-lifecycle)
+  - 会议记录: [SIG Meeting Notes](https://docs.google.com/document/d/1Gmc7Ly34Lf4Zvz6oWbvK7dq7nseR0fmbo8sL-7Yg9_M)
+
+### Machine API (MAPI) 相关项目
+
+#### OpenShift Machine API
+- **Machine API Operator**
+  - GitHub: [openshift/machine-api-operator](https://github.com/openshift/machine-api-operator)
+  - 官方文档: [OpenShift Machine Management](https://docs.openshift.com/container-platform/latest/machine_management/index.html)
+
+#### AWS Provider
+- **Machine API Provider AWS**
+  - GitHub: [openshift/cluster-api-provider-aws](https://github.com/openshift/cluster-api-provider-aws)
+
+### OpenShift Installer 相关
+
+#### 核心项目
+- **OpenShift Installer**
+  - GitHub: [openshift/installer](https://github.com/openshift/installer)
+  - 文档: [Installer Documentation](https://github.com/openshift/installer/blob/master/docs/user/overview.md)
+
+#### 相关 Bug 和 PR
+- **OCPBUGS-69923**: [Control plane machines are created in wrong zone](https://issues.redhat.com/browse/OCPBUGS-69923)
+- **PR #10188**: [OCPBUGS-69923: ensure deterministic zone ordering for control plane machines](https://github.com/openshift/installer/pull/10188)
+- **PR #9662**: [OCPBUGS-55492: sort zone slices extracted from map of byo subnets](https://github.com/openshift/installer/pull/9662)
+
+### OpenShift 官方文档
+
+- **OpenShift Container Platform 文档**
+  - 主文档: [OpenShift Documentation](https://docs.openshift.com/container-platform/latest/)
+  - 机器管理: [Machine Management](https://docs.openshift.com/container-platform/latest/machine_management/index.html)
+  - 安装指南: [Installing on AWS](https://docs.openshift.com/container-platform/latest/installing/installing_aws/installing-aws-installer.html)
+
+### 其他相关资源
+
+- **Kubernetes 社区**
+  - Kubernetes 官网: [kubernetes.io](https://kubernetes.io/)
+  - Kubernetes GitHub: [kubernetes/kubernetes](https://github.com/kubernetes/kubernetes)
+
+- **CNCF (Cloud Native Computing Foundation)**
+  - CNCF 官网: [cncf.io](https://www.cncf.io/)
+  - CNCF 项目列表: [CNCF Projects](https://www.cncf.io/projects/)
+
+- **Red Hat OpenShift**
+  - OpenShift 官网: [openshift.com](https://www.openshift.com/)
+  - Red Hat 客户门户: [access.redhat.com](https://access.redhat.com/)
 
 ## 参考
 
@@ -187,3 +318,4 @@ OpenShift 同时使用 CAPI 和 MAPI 的原因：
 - Cluster API 项目文档
 - OCPBUGS-69923 Bug Report
 - OpenShift Installer 源代码
+- Kubernetes SIG Cluster Lifecycle 会议记录
