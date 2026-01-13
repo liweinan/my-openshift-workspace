@@ -146,40 +146,98 @@ openshift-install create manifests --dir=<installation_directory>
 
 #### 3.1 检查 CAPI Machine Manifest 中的 Zone 分配
 
-查找 CAPI 相关的 machine manifest 文件（通常在 `openshift/99_openshift-cluster-api_master-machines-*.yaml`）：
+**CAPI 文件结构**：
+- CAPI 为每个 master 机器生成**独立的文件**
+- 文件列表：`99_openshift-cluster-api_master-machines-0.yaml`, `99_openshift-cluster-api_master-machines-1.yaml`, `99_openshift-cluster-api_master-machines-2.yaml`
+- 每个文件是一个独立的 `Machine` 对象，包含一个机器的配置
+- **因此需要使用 for 循环遍历每个文件**
+
+查找 CAPI 相关的 machine manifest 文件：
 
 ```bash
 # 查找所有 CAPI master machine manifests
 find <installation_directory>/openshift -name "*cluster-api*master*.yaml" -type f
 
-# 提取每个机器的 zone 信息
+# 方法 1: 提取每个机器的 zone 信息（详细输出）
 for file in <installation_directory>/openshift/99_openshift-cluster-api_master-machines-*.yaml; do
-  echo "=== $file ==="
-  yq eval '.spec.template.spec.providerSpec.value.placement.availabilityZone' "$file"
-done
-```
-
-记录每个 CAPI machine 的 zone，例如：
-- master-0: us-east-2a
-- master-1: us-east-2b
-- master-2: us-east-2c
-
-#### 3.2 检查 MAPI Machine Manifest 中的 Zone 分配
-
-查找 MAPI 相关的 machine manifest 文件（通常在 `openshift/99_openshift-machine-api_master-machines-*.yaml`）：
-
-```bash
-# 查找所有 MAPI master machine manifests
-find <installation_directory>/openshift -name "*machine-api*master*.yaml" -type f
-
-# 提取每个机器的 zone 信息
-for file in <installation_directory>/openshift/99_openshift-machine-api_master-machines-*.yaml; do
   echo "=== $file ==="
   yq eval '.spec.providerSpec.value.placement.availabilityZone' "$file"
 done
 ```
 
-记录每个 MAPI machine 的 zone。
+**快速检查方法**（推荐）：
+
+```bash
+# 切换到安装目录
+cd <installation_directory>
+
+# 快速列出所有 CAPI machines 的 zone（按文件名排序）
+# 注意：需要 for 循环，因为每个机器在单独的文件中
+for file in openshift/99_openshift-cluster-api_master-machines-*.yaml; do
+  echo "$(basename $file): $(yq eval '.spec.providerSpec.value.placement.availabilityZone' "$file")"
+done | sort
+```
+
+**示例输出**：
+```
+99_openshift-cluster-api_master-machines-0.yaml: us-east-1a
+99_openshift-cluster-api_master-machines-1.yaml: us-east-1b
+99_openshift-cluster-api_master-machines-2.yaml: us-east-1c
+```
+
+记录每个 CAPI machine 的 zone，例如：
+- master-0: us-east-1a
+- master-1: us-east-1b
+- master-2: us-east-1c
+
+#### 3.2 检查 MAPI Machine Manifest 中的 Zone 分配
+
+**MAPI 文件结构**：
+- MAPI 只生成**一个文件**：`99_openshift-machine-api_master-control-plane-machine-set.yaml`
+- 这是一个 `ControlPlaneMachineSet` 对象
+- 所有 zones 都存储在一个文件的 `failureDomains.aws[]` 数组中
+- **因此不需要 for 循环，可以直接用一个 yq 命令提取所有 zones**
+
+查找 MAPI 相关的 machine manifest 文件：
+
+```bash
+# 查找 MAPI manifest 文件
+find <installation_directory>/openshift -name "*machine-api*master*.yaml" -type f
+
+# 提取 MAPI ControlPlaneMachineSet 中的 zones（从 failureDomains）
+cd <installation_directory>
+yq eval '.spec.template.machines_v1beta1_machine_openshift_io.failureDomains.aws[].placement.availabilityZone' openshift/99_openshift-machine-api_master-control-plane-machine-set.yaml
+```
+
+**快速检查方法**（推荐）：
+
+```bash
+# 切换到安装目录
+cd <installation_directory>
+
+# 列出 MAPI failureDomains 中的所有 zones（按顺序）
+# 注意：不需要 for 循环，因为所有 zones 在一个文件的数组中
+echo "MAPI Zones (from ControlPlaneMachineSet failureDomains):"
+yq eval '.spec.template.machines_v1beta1_machine_openshift_io.failureDomains.aws[].placement.availabilityZone' openshift/99_openshift-machine-api_master-control-plane-machine-set.yaml | nl -v0 -w1 -s': '
+
+# 或者只显示前 3 个（对应 3 个 master）
+echo "MAPI Zones (first 3, for masters):"
+yq eval '.spec.template.machines_v1beta1_machine_openshift_io.failureDomains.aws[].placement.availabilityZone' openshift/99_openshift-machine-api_master-control-plane-machine-set.yaml | head -3 | nl -v0 -w1 -s': '
+```
+
+**示例输出**：
+```
+MAPI Zones (from ControlPlaneMachineSet failureDomains):
+0: us-east-1a
+1: us-east-1b
+2: us-east-1c
+3: us-east-1d
+4: us-east-1f
+```
+
+**注意**：MAPI 的 ControlPlaneMachineSet 包含所有可用的 zones，但实际分配给 master 的是前 N 个（N = master 数量，通常是 3）。需要比较的是前 3 个 zones 与 CAPI 的 3 个 zones 是否一致。
+
+记录 MAPI 中前 N 个 zones（N = master 数量）。
 
 #### 3.3 验证 Zone 分配一致性
 
@@ -190,54 +248,110 @@ done
 - CAPI master-1 和 MAPI master-1 都应该是 us-east-2b
 - CAPI master-2 和 MAPI master-2 都应该是 us-east-2c
 
-**验证脚本**：
+**手动快速比较方法**：
+
+```bash
+# 切换到安装目录
+cd <installation_directory>
+
+# 1. 获取 CAPI zones（按文件顺序）
+#    注意：CAPI 需要 for 循环，因为每个机器在单独的文件中
+echo "=== CAPI Zones ==="
+for file in openshift/99_openshift-cluster-api_master-machines-*.yaml; do
+  echo "$(basename $file): $(yq eval '.spec.providerSpec.value.placement.availabilityZone' "$file")"
+done | sort
+
+# 2. 获取 MAPI zones（前 3 个，对应 3 个 master）
+#    注意：MAPI 不需要 for 循环，因为所有 zones 在一个文件的数组中
+echo ""
+echo "=== MAPI Zones (first 3) ==="
+yq eval '.spec.template.machines_v1beta1_machine_openshift_io.failureDomains.aws[].placement.availabilityZone' openshift/99_openshift-machine-api_master-control-plane-machine-set.yaml | head -3 | nl -v0 -w1 -s': '
+
+# 3. 手动比较：CAPI 和 MAPI 的前 3 个 zones 应该完全一致
+```
+
+**为什么 CAPI 需要 for 循环，而 MAPI 不需要？**
+
+- **CAPI**：每个 master 机器有**独立的文件**（3 个文件），每个文件是一个 Machine 对象，需要遍历每个文件
+- **MAPI**：所有 master 机器信息在**一个文件**中（ControlPlaneMachineSet），所有 zones 存储在一个数组中，可以直接用 yq 提取数组
+
+**示例输出**：
+```bash
+=== CAPI Zones ===
+99_openshift-cluster-api_master-machines-0.yaml: us-east-1a
+99_openshift-cluster-api_master-machines-1.yaml: us-east-1b
+99_openshift-cluster-api_master-machines-2.yaml: us-east-1c
+
+=== MAPI Zones (first 3) ===
+0: us-east-1a
+1: us-east-1b
+2: us-east-1c
+```
+
+**验证脚本**（自动化验证）：
+
+也可以使用项目中的 `verify-manifests.sh` 脚本进行自动化验证：
+
+```bash
+./verify-manifests.sh <installation_directory>
+```
+
+或者使用以下脚本：
 
 ```bash
 #!/bin/bash
 
 INSTALL_DIR="<installation_directory>"
 
-echo "=== 验证 CAPI 和 MAPI Zone 分配一致性 ==="
+echo "=== Verify CAPI and MAPI Zone Allocation Consistency ==="
 
-# 获取 CAPI zones
+# Get CAPI zones
 echo "CAPI Machine Zones:"
 capi_zones=()
 for file in "$INSTALL_DIR"/openshift/99_openshift-cluster-api_master-machines-*.yaml; do
-  zone=$(yq eval '.spec.template.spec.providerSpec.value.placement.availabilityZone' "$file")
+  zone=$(yq eval '.spec.providerSpec.value.placement.availabilityZone' "$file")
   capi_zones+=("$zone")
   echo "  $(basename $file): $zone"
 done
 
-# 获取 MAPI zones
+# Get MAPI zones (first N zones from failureDomains)
 echo ""
-echo "MAPI Machine Zones:"
+echo "MAPI Machine Zones (from ControlPlaneMachineSet):"
 mapi_zones=()
-for file in "$INSTALL_DIR"/openshift/99_openshift-machine-api_master-machines-*.yaml; do
-  zone=$(yq eval '.spec.providerSpec.value.placement.availabilityZone' "$file")
-  mapi_zones+=("$zone")
-  echo "  $(basename $file): $zone"
+mapi_file="$INSTALL_DIR/openshift/99_openshift-machine-api_master-control-plane-machine-set.yaml"
+zones=$(yq eval '.spec.template.machines_v1beta1_machine_openshift_io.failureDomains.aws[].placement.availabilityZone' "$mapi_file")
+master_count=${#capi_zones[@]}
+mapi_index=0
+for zone in $zones; do
+  if [ $mapi_index -lt $master_count ]; then
+    mapi_zones+=("$zone")
+    echo "  master-$mapi_index: $zone"
+    mapi_index=$((mapi_index + 1))
+  else
+    break
+  fi
 done
 
-# 比较
+# Compare
 echo ""
-echo "=== 一致性检查 ==="
+echo "=== Consistency Check ==="
 all_match=true
 for i in "${!capi_zones[@]}"; do
   if [ "${capi_zones[$i]}" != "${mapi_zones[$i]}" ]; then
-    echo "❌ 不匹配: master-$i - CAPI: ${capi_zones[$i]}, MAPI: ${mapi_zones[$i]}"
+    echo "❌ Mismatch: master-$i - CAPI: ${capi_zones[$i]}, MAPI: ${mapi_zones[$i]}"
     all_match=false
   else
-    echo "✓ 匹配: master-$i - Zone: ${capi_zones[$i]}"
+    echo "✓ Match: master-$i - Zone: ${capi_zones[$i]}"
   fi
 done
 
 if [ "$all_match" = true ]; then
   echo ""
-  echo "✅ 所有机器的 zone 分配一致！"
+  echo "✅ All machines have consistent zone allocation!"
   exit 0
 else
   echo ""
-  echo "❌ 发现 zone 分配不一致！"
+  echo "❌ Zone allocation inconsistency detected!"
   exit 1
 fi
 ```
