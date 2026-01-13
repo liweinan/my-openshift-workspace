@@ -23,19 +23,12 @@
 ## 相关文件
 
 - `manual-test-guide.md` - 详细的手动测试指南
-- `verify_pr_10188.sh` - 验证二进制文件是否包含修复的脚本
 - `verify-manifests.sh` - 静态验证 manifests 中的 zone 分配一致性
 - `verify-cluster.sh` - 验证已安装集群中的机器 zone 一致性
 
 ## 快速开始
 
-### 1. 验证二进制文件包含修复
-
-```bash
-./verify_pr_10188.sh <path_to_openshift-install>
-```
-
-### 2. 静态验证 Manifests（推荐第一步）
+### 1. 静态验证 Manifests（推荐第一步）
 
 在生成 manifests 后，验证 CAPI 和 MAPI manifest 中的 zone 分配是否一致：
 
@@ -49,7 +42,7 @@ openshift-install create manifests --dir <installation_directory>
 
 **预期结果**：CAPI 和 MAPI manifest 中对应索引的机器应分配到相同的 zone。
 
-### 3. 验证已安装的集群
+### 2. 验证已安装的集群
 
 在集群安装完成后，验证实际创建的机器的 zone 一致性：
 
@@ -66,22 +59,19 @@ export KUBECONFIG=<installation_directory>/auth/kubeconfig
 ### 完整测试流程
 
 ```bash
-# 1. 验证二进制文件
-./verify_pr_10188.sh /path/to/openshift-install
-
-# 2. 准备 install-config.yaml（不指定 zones）
+# 1. 准备 install-config.yaml（不指定 zones）
 # 编辑 install-config.yaml，确保不指定 controlPlane.platform.aws.zones
 
-# 3. 生成 manifests
+# 2. 生成 manifests
 openshift-install create manifests --dir ./test-cluster
 
-# 4. 静态验证 manifests
+# 3. 静态验证 manifests
 ./verify-manifests.sh ./test-cluster
 
-# 5. 安装集群（手动执行）
+# 4. 安装集群（手动执行）
 openshift-install create cluster --dir ./test-cluster
 
-# 6. 验证已安装的集群
+# 5. 验证已安装的集群
 ./verify-cluster.sh ./test-cluster/auth/kubeconfig
 ```
 

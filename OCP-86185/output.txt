@@ -1,0 +1,60 @@
+anan@think:~/works/my-openshift-workspace/OCP-86185$ ./run-ocp86185-test.sh -i /home/anan/works/openshift-versions/421rc0/openshift-install -p /home/anan/works/openshift-versions/auth.json -k ~/.ssh/id_rsa.pub
+Step 1: Test just below minimum boundary (124)
+level=error msg=failed to fetch Master Machines: failed to load asset "Install Config": failed to create install config: invalid "install-config.yaml" file: [platform.aws.defaultMachinePlatform.throughput: Invalid value: 124: throughput must be between 125 MiB/s and 2000 MiB/s, controlPlane.platform.aws.throughput: Invalid value: 124: throughput must be between 125 MiB/s and 2000 MiB/s, compute[0].platform.aws.throughput: Invalid value: 124: throughput must be between 125 MiB/s and 2000 MiB/s]
+  PASSED
+Step 2: Test just above maximum boundary (2001)
+level=error msg=failed to fetch Master Machines: failed to load asset "Install Config": failed to create install config: invalid "install-config.yaml" file: [platform.aws.defaultMachinePlatform.throughput: Invalid value: 2001: throughput must be between 125 MiB/s and 2000 MiB/s, controlPlane.platform.aws.throughput: Invalid value: 2001: throughput must be between 125 MiB/s and 2000 MiB/s, compute[0].platform.aws.throughput: Invalid value: 2001: throughput must be between 125 MiB/s and 2000 MiB/s]
+  PASSED
+Step 3: Test throughput value zero
+level=error msg=failed to fetch Master Machines: failed to load asset "Install Config": failed to create install config: invalid "install-config.yaml" file: [platform.aws.defaultMachinePlatform.throughput: Invalid value: 0: throughput must be between 125 MiB/s and 2000 MiB/s, controlPlane.platform.aws.throughput: Invalid value: 0: throughput must be between 125 MiB/s and 2000 MiB/s, compute[0].platform.aws.throughput: Invalid value: 0: throughput must be between 125 MiB/s and 2000 MiB/s]
+  PASSED
+Step 4: Test negative throughput value
+level=error msg=failed to fetch Master Machines: failed to load asset "Install Config": failed to create install config: invalid "install-config.yaml" file: [platform.aws.defaultMachinePlatform.throughput: Invalid value: -100: throughput must be between 125 MiB/s and 2000 MiB/s, controlPlane.platform.aws.throughput: Invalid value: -100: throughput must be between 125 MiB/s and 2000 MiB/s, compute[0].platform.aws.throughput: Invalid value: -100: throughput must be between 125 MiB/s and 2000 MiB/s]
+  PASSED
+Step 5: Test invalid throughput type (string)
+level=error msg=failed to fetch Master Machines: failed to load asset "Install Config": failed to create install config: failed to unmarshal install-config.yaml: error unmarshaling JSON: while decoding JSON: json: cannot unmarshal string into Go struct field EC2RootVolume.platform.aws.defaultMachinePlatform.rootVolume.throughput of type int32
+  PASSED
+Step 6: Test unsupported volume type with throughput
+level=error msg=failed to fetch Master Machines: failed to load asset "Install Config": failed to create install config: invalid "install-config.yaml" file: [platform.aws.defaultMachinePlatform.throughput: Invalid value: 500: throughput not supported for type gp2, controlPlane.platform.aws.throughput: Invalid value: 500: throughput not supported for type gp2, compute[0].platform.aws.throughput: Invalid value: 500: throughput not supported for type gp2]
+  PASSED
+Step 7: Test split configuration below minimum boundary (control plane)
+level=error msg=failed to fetch Master Machines: failed to load asset "Install Config": failed to create install config: invalid "install-config.yaml" file: controlPlane.platform.aws.throughput: Invalid value: 50: throughput must be between 125 MiB/s and 2000 MiB/s
+  PASSED
+Step 8: Test split configuration above maximum boundary (control plane)
+level=error msg=failed to fetch Master Machines: failed to load asset "Install Config": failed to create install config: invalid "install-config.yaml" file: controlPlane.platform.aws.throughput: Invalid value: 5000: throughput must be between 125 MiB/s and 2000 MiB/s
+  PASSED
+Step 9: Test split configuration below minimum boundary (compute)
+level=error msg=failed to fetch Master Machines: failed to load asset "Install Config": failed to create install config: invalid "install-config.yaml" file: compute[0].platform.aws.throughput: Invalid value: 50: throughput must be between 125 MiB/s and 2000 MiB/s
+  PASSED
+Step 10: Test split configuration above maximum boundary (compute)
+level=error msg=failed to fetch Master Machines: failed to load asset "Install Config": failed to create install config: invalid "install-config.yaml" file: compute[0].platform.aws.throughput: Invalid value: 5000: throughput must be between 125 MiB/s and 2000 MiB/s
+  PASSED
+Step 11: Test split configuration with unsupported volume type (control plane)
+level=error msg=failed to fetch Master Machines: failed to load asset "Install Config": failed to create install config: invalid "install-config.yaml" file: controlPlane.platform.aws.throughput: Invalid value: 500: throughput not supported for type gp2
+  PASSED
+Step 12: Test split configuration with unsupported volume type (compute)
+level=error msg=failed to fetch Master Machines: failed to load asset "Install Config": failed to create install config: invalid "install-config.yaml" file: compute[0].platform.aws.throughput: Invalid value: 500: throughput not supported for type gp2
+  PASSED
+Step 13: Test throughput zero without volume type (compute)
+level=error msg=failed to fetch Master Machines: failed to load asset "Install Config": failed to create install config: invalid "install-config.yaml" file: compute[0].platform.aws.throughput: Invalid value: 0: throughput must be between 125 MiB/s and 2000 MiB/s
+  PASSED
+Step 14: Test throughput zero without volume type (control plane)
+level=error msg=failed to fetch Master Machines: failed to load asset "Install Config": failed to create install config: invalid "install-config.yaml" file: controlPlane.platform.aws.throughput: Invalid value: 0: throughput must be between 125 MiB/s and 2000 MiB/s
+  PASSED
+Step 15: Test throughput without volume type for edge compute pool
+level=error msg=failed to fetch Master Machines: failed to load asset "Install Config": failed to create install config: invalid "install-config.yaml" file: compute[0].platform.aws.throughput: Invalid value: 1200: throughput not supported for type gp2
+  PASSED
+
+==========================================
+Test Summary
+==========================================
+Total: 15
+Passed: 15
+Failed: 0
+==========================================
+anan@think:~/works/my-openshift-workspace/OCP-86185$ /home/anan/works/openshift-versions/421rc0/openshift-install version
+/home/anan/works/openshift-versions/421rc0/openshift-install 4.21.0-rc.0
+built from commit 8f88b34924c2267a2aa446dcdc6ccdd5260f9c45
+release image quay.io/openshift-release-dev/ocp-release@sha256:ecde621d6f74aa1af4cd351f8b571ca2a61bbc32826e49cdf1b7fbff07f04ede
+release architecture amd64
+anan@think:~/works/my-openshift-workspace/OCP-86185$ 

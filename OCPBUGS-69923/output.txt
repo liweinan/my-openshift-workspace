@@ -1,0 +1,45 @@
+anan@think:~/works/openshift-versions/421beta4$ ./openshift-install version
+./openshift-install 4.21.0-0-2026-01-13-132000-test-ci-ln-x92lq5b-latest
+built from commit e1039636fe8f0c073ebb9b728503995c002f05a0
+release image registry.build10.ci.openshift.org/ci-ln-x92lq5b/release@sha256:28d37d5e8123cde6d70b02b0f081f9e45859d1880ccc763acaac548353bce436
+release architecture amd64
+anan@think:~/works/openshift-versions/421beta4$ for file in openshift/99_openshift-cluster-api_master-machines-*.yaml; do echo "$(basename $file): $(yq eval '.spec.providerSpec.value.placement.availabilityZone' "$file")"; done | sort
+99_openshift-cluster-api_master-machines-0.yaml: us-east-1a
+99_openshift-cluster-api_master-machines-1.yaml: us-east-1b
+99_openshift-cluster-api_master-machines-2.yaml: us-east-1c
+anan@think:~/works/openshift-versions/421beta4$ echo "=== MAPI Zones (first 3) ===" && yq eval '.spec.template.machines_v1beta1_machine_openshift_io.failureDomains.aws[].placement.availabilityZone' openshift/99_openshift-machine-api_master-control-plane-machine-set.yaml | head -3 | nl -v0 -w1 -s': '
+=== MAPI Zones (first 3) ===
+0: us-east-1a
+1: us-east-1b
+2: us-east-1c
+
+
+---
+
+anan@think:~/works/openshift-versions/421beta4$ export KUBECONFIG=/home/anan/works/openshift-versions/421beta4/auth/kubeconfig
+anan@think:~/works/openshift-versions/421beta4$ echo "=== Zone Labels ==="
+for machine in $(oc get machine -n openshift-machine-api -l machine.openshift.io/cluster-api-machine-role=master -o jsonpath='{.items[*].metadata.name}'); do
+  echo "$machine: $(oc get machine "$machine" -n openshift-machine-api -o jsonpath='{.metadata.labels.machine\.openshift\.io/zone}')"
+done
+=== Zone Labels ===
+weli-test5-rwt9m-master-0: us-east-1a
+weli-test5-rwt9m-master-1: us-east-1b
+weli-test5-rwt9m-master-2: us-east-1c
+anan@think:~/works/openshift-versions/421beta4$ echo "=== ProviderID Zones ==="
+for machine in $(oc get machine -n openshift-machine-api -l machine.openshift.io/cluster-api-machine-role=master -o jsonpath='{.items[*].metadata.name}'); do
+  provider_id=$(oc get machine "$machine" -n openshift-machine-api -o jsonpath='{.spec.providerID}')
+  provider_zone=$(echo "$provider_id" | grep -oP 'aws:///\K[^/]+')
+  echo "$machine: $provider_zone"
+done
+=== ProviderID Zones ===
+weli-test5-rwt9m-master-0: us-east-1a
+weli-test5-rwt9m-master-1: us-east-1b
+weli-test5-rwt9m-master-2: us-east-1c
+anan@think:~/works/openshift-versions/421beta4$ echo "=== Spec Zones ==="
+for machine in $(oc get machine -n openshift-machine-api -l machine.openshift.io/cluster-api-machine-role=master -o jsonpath='{.items[*].metadata.name}'); do
+  echo "$machine: $(oc get machine "$machine" -n openshift-machine-api -o jsonpath='{.spec.providerSpec.value.placement.availabilityZone}')"
+done
+=== Spec Zones ===
+weli-test5-rwt9m-master-0: us-east-1a
+weli-test5-rwt9m-master-1: us-east-1b
+weli-test5-rwt9m-master-2: us-east-1c

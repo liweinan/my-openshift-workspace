@@ -88,14 +88,6 @@ go tool nm <path_to_openshift-install> | grep -i "sort\|zone" | head -20
 objdump -t <path_to_openshift-install> | grep -i "sort\|zone" | head -20
 ```
 
-### 快速验证脚本
-
-可以使用项目中的 `verify_pr_10188.sh` 脚本进行快速验证：
-
-```bash
-./verify_pr_10188.sh <path_to_openshift-install>
-```
-
 **推荐做法**：结合构建日志确认（方法 3）和功能测试验证（方法 4）是最可靠的方式。
 
 ## 测试步骤
@@ -376,6 +368,55 @@ export KUBECONFIG=<installation_directory>/auth/kubeconfig
 
 #### 5.2 检查所有 Master 机器的 Zone 信息
 
+**快速检查方法**（推荐）：
+
+```bash
+# 设置 kubeconfig
+export KUBECONFIG=<installation_directory>/auth/kubeconfig
+
+# 快速列出所有 master 机器的 zone（Zone Label）
+echo "=== Zone Labels ==="
+for machine in $(oc get machine -n openshift-machine-api -l machine.openshift.io/cluster-api-machine-role=master -o jsonpath='{.items[*].metadata.name}'); do
+  echo "$machine: $(oc get machine "$machine" -n openshift-machine-api -o jsonpath='{.metadata.labels.machine\.openshift\.io/zone}')"
+done
+
+# 快速列出所有 master 机器的 zone（ProviderID Zone）
+echo ""
+echo "=== ProviderID Zones ==="
+for machine in $(oc get machine -n openshift-machine-api -l machine.openshift.io/cluster-api-machine-role=master -o jsonpath='{.items[*].metadata.name}'); do
+  provider_id=$(oc get machine "$machine" -n openshift-machine-api -o jsonpath='{.spec.providerID}')
+  provider_zone=$(echo "$provider_id" | grep -oP 'aws:///\K[^/]+')
+  echo "$machine: $provider_zone"
+done
+
+# 快速列出所有 master 机器的 zone（Spec Zone）
+echo ""
+echo "=== Spec Zones ==="
+for machine in $(oc get machine -n openshift-machine-api -l machine.openshift.io/cluster-api-machine-role=master -o jsonpath='{.items[*].metadata.name}'); do
+  echo "$machine: $(oc get machine "$machine" -n openshift-machine-api -o jsonpath='{.spec.providerSpec.value.placement.availabilityZone}')"
+done
+```
+
+**示例输出**：
+```
+=== Zone Labels ===
+test-cluster-69923-master-0: us-east-1a
+test-cluster-69923-master-1: us-east-1b
+test-cluster-69923-master-2: us-east-1c
+
+=== ProviderID Zones ===
+test-cluster-69923-master-0: us-east-1a
+test-cluster-69923-master-1: us-east-1b
+test-cluster-69923-master-2: us-east-1c
+
+=== Spec Zones ===
+test-cluster-69923-master-0: us-east-1a
+test-cluster-69923-master-1: us-east-1b
+test-cluster-69923-master-2: us-east-1c
+```
+
+**详细检查方法**（如果需要更多信息）：
+
 ```bash
 # 获取所有 master 机器
 oc get machine -n openshift-machine-api -l machine.openshift.io/cluster-api-machine-role=master
@@ -406,12 +447,80 @@ done
 
 #### 5.3 验证 Zone 一致性
 
+**Zone 信息说明**：
+
+在 OpenShift 集群中，每台机器有三个与可用区相关的信息，它们应该保持一致：
+
+1. **Spec Zone** (`spec.providerSpec.value.placement.availabilityZone`)
+   - **含义**：Machine 对象配置中指定的可用区
+   - **作用**：告诉 AWS 在哪个可用区创建 EC2 实例
+   - **来源**：由 `openshift-install` 在生成 manifest 时设置
+   - **性质**：这是"期望的"或"配置的"zone
+
+2. **ProviderID Zone** (从 `spec.providerID` 提取，格式：`aws:///us-east-1a/i-xxx`)
+   - **含义**：实际创建的 EC2 实例所在的可用区
+   - **作用**：反映 EC2 实例的真实位置
+   - **来源**：在 EC2 实例创建后，由 AWS provider 自动填充
+   - **性质**：这是"实际的"zone
+
+3. **Zone Label** (`metadata.labels.machine.openshift.io/zone`)
+   - **含义**：Kubernetes 对象上的可用区标签
+   - **作用**：用于标识机器所在的可用区，方便调度器、查询和过滤
+   - **来源**：通常由 Machine API Controller 根据实际创建的实例信息自动设置
+   - **性质**：这是"标签化的"zone
+
+**三者关系**：
+
+```
+Spec Zone (配置) 
+    ↓
+   创建 EC2 实例
+    ↓
+ProviderID Zone (实际) → Zone Label (标签)
+```
+
+- **Spec Zone** 是配置，告诉系统要在哪里创建实例
+- **ProviderID Zone** 是实际创建的实例所在的 zone
+- **Zone Label** 是标签，应该与实际 zone 一致
+
 **预期结果**：对于每个 master 机器，以下三个值应该一致：
 1. `metadata.labels.machine.openshift.io/zone`（zone label）
 2. `spec.providerID` 中的 zone（例如 `aws:///us-east-2a/...`）
 3. `spec.providerSpec.value.placement.availabilityZone`（spec 中指定的 zone）
 
-**验证脚本**：
+**如果不一致可能的原因**：
+- ❌ 实例没有在配置的 zone 中创建（配置问题或 AWS 限制）
+- ❌ Zone Label 设置错误（控制器问题）
+- ❌ 实例被迁移或重新创建到了不同的 zone（异常情况）
+
+**快速验证方法**（推荐）：
+
+```bash
+# 设置 kubeconfig
+export KUBECONFIG=<installation_directory>/auth/kubeconfig
+
+# 一行命令快速验证所有机器的 zone 一致性
+for machine in $(oc get machine -n openshift-machine-api -l machine.openshift.io/cluster-api-machine-role=master -o jsonpath='{.items[*].metadata.name}'); do
+  zone_label=$(oc get machine "$machine" -n openshift-machine-api -o jsonpath='{.metadata.labels.machine\.openshift\.io/zone}')
+  provider_id=$(oc get machine "$machine" -n openshift-machine-api -o jsonpath='{.spec.providerID}')
+  provider_zone=$(echo "$provider_id" | grep -oP 'aws:///\K[^/]+')
+  spec_zone=$(oc get machine "$machine" -n openshift-machine-api -o jsonpath='{.spec.providerSpec.value.placement.availabilityZone}')
+  if [ "$zone_label" = "$provider_zone" ] && [ "$provider_zone" = "$spec_zone" ]; then
+    echo "✓ $machine: $zone_label (一致)"
+  else
+    echo "✗ $machine: Label=$zone_label, ProviderID=$provider_zone, Spec=$spec_zone (不一致)"
+  fi
+done
+```
+
+**示例输出**：
+```
+✓ test-cluster-69923-master-0: us-east-1a (一致)
+✓ test-cluster-69923-master-1: us-east-1b (一致)
+✓ test-cluster-69923-master-2: us-east-1c (一致)
+```
+
+**完整验证脚本**（自动化验证）：
 
 ```bash
 #!/bin/bash
